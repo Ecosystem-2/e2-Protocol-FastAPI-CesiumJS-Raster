@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Segama Climate Story</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.118/Build/Cesium/Widgets/widgets.css">
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0b1726;
+            color: #f4f4f4;
+        }
+        #toolbar {
+            position: absolute;
+            top: 1rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: rgba(7, 14, 29, 0.9);
+            backdrop-filter: blur(12px);
+            border-radius: 12px;
+            padding: 0.75rem 1.25rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        #toolbar label {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #9fc5ff;
+        }
+        #toolbar .control {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            align-items: flex-start;
+        }
+        #toolbar select {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 999px;
+            padding: 0.35rem 1rem;
+            font-size: 0.95rem;
+        }
+        #toolbar select:focus {
+            outline: none;
+            border-color: rgba(159,197,255,0.6);
+        }
+        #datasetSelect {
+            background: rgba(255,255,255,0.08);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 999px;
+            padding: 0.4rem 1rem;
+            font-size: 0.95rem;
+        }
+        #legend {
+            position: absolute;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background: rgba(7, 14, 29, 0.85);
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            width: 260px;
+            z-index: 5;
+            font-size: 0.9rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        #legend h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 0.95rem;
+            color: #9fc5ff;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        #legend ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #legend li {
+            margin-bottom: 0.35rem;
+            color: #d9d9d9;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            border: 1px solid rgba(255,255,255,0.4);
+            flex-shrink: 0;
+        }
+        #activePeriod {
+            position: absolute;
+            top: 1rem;
+            right: 1.5rem;
+            z-index: 10;
+            background: rgba(7, 14, 29, 0.85);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        }
+        #cesiumContainer {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="toolbar">
+        <div class="control">
+            <label for="datasetSelect">Scenario</label>
+            <select id="datasetSelect"></select>
+        </div>
+        <div class="control">
+            <label for="basemapSelect">Basemap</label>
+            <select id="basemapSelect"></select>
+        </div>
+    </div>
+    <div id="activePeriod">Loading period…</div>
+    <div id="legend">
+        <h4>Threat Levels</h4>
+        <ul id="legendItems"></ul>
+    </div>
+    <div id="cesiumContainer"></div>
+    <script src="https://cdn.jsdelivr.net/npm/cesium@1.118/Build/Cesium/Cesium.js"></script>
+    <script>
+        const CONFIG_URL = "{{ config_url }}";
+        const IMAGE_URL_TEMPLATE = "{{ image_url_template }}";
+        const CESIUM_TOKEN = "{{ cesium_token or '' }}";
+        const BASEMAPS = [
+            {
+                id: "osm",
+                label: "OpenStreetMap",
+                type: "template",
+                url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                credit: "© OpenStreetMap contributors"
+            },
+            {
+                id: "voyager",
+                label: "Voyager",
+                type: "template",
+                url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
+                credit: "© CARTO",
+                subdomains: ["a","b","c","d"]
+            },
+            {
+                id: "dark",
+                label: "Night Streets",
+                type: "template",
+                url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
+                credit: "© CARTO",
+                subdomains: ["a","b","c","d"]
+            },
+            {
+                id: "gray",
+                label: "Light Gray",
+                type: "template",
+                url: "https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}",
+                credit: "Tiles © Esri"
+            }
+        ];
+        if (CESIUM_TOKEN) {
+            BASEMAPS.unshift({
+                id: "ion",
+                label: "Cesium World Imagery",
+                type: "ion",
+                assetId: 3
+            });
+        }
+
+        let viewer = null;
+        let baseLayer = null;
+        let configData = null;
+        let activeLayers = [];
+
+        function clamp01(value) {
+            return Math.max(0, Math.min(1, value));
+        }
+
+        function computeAlpha(nowMs, startMs, endMs, fadeMs) {
+            const fadeStart = startMs - fadeMs;
+            const fadeEnd = endMs + fadeMs;
+            if (nowMs <= fadeStart || nowMs >= fadeEnd) {
+                return 0;
+            }
+            if (nowMs < startMs) {
+                return clamp01((nowMs - fadeStart) / fadeMs);
+            }
+            if (nowMs > endMs) {
+                return clamp01((fadeEnd - nowMs) / fadeMs);
+            }
+            return 1;
+        }
+
+        function onTick(clock) {
+            if (!activeLayers.length) return;
+            const now = Cesium.JulianDate.toDate(clock.currentTime).getTime();
+            activeLayers.forEach((item) => {
+                const alpha = computeAlpha(
+                    now,
+                    item.start,
+                    item.end,
+                    item.fadeSeconds * 1000
+                );
+                const visible = alpha > 0;
+                item.layer.show = visible;
+                item.layer.alpha = visible ? 0.85 : 0.0;
+                if (visible) {
+                    updateActivePeriod(item.label, item.startText, item.endText);
+                }
+            });
+        }
+
+        async function init() {
+            if (CESIUM_TOKEN) {
+                Cesium.Ion.defaultAccessToken = CESIUM_TOKEN;
+            }
+
+            const terrainProvider = CESIUM_TOKEN
+                ? await Cesium.createWorldTerrainAsync()
+                : new Cesium.EllipsoidTerrainProvider();
+
+            viewer = new Cesium.Viewer("cesiumContainer", {
+                imageryProvider: false,
+                terrainProvider,
+                baseLayerPicker: false,
+                animation: true,
+                timeline: true,
+                geocoder: false,
+                homeButton: false
+            });
+            viewer.imageryLayers.removeAll();
+            viewer.scene.postProcessStages.fxaa.enabled = true;
+            viewer.scene.fog.enabled = true;
+            viewer.scene.fog.density = 0.0006;
+            viewer.scene.globe.enableLighting = true;
+            viewer.scene.skyAtmosphere.hueShift = -0.05;
+            viewer.scene.skyAtmosphere.saturationShift = -0.05;
+            viewer.scene.skyAtmosphere.brightnessShift = 0.1;
+
+            const bloom = Cesium.PostProcessStageLibrary.createBloomStage();
+            bloom.uniforms.glowOnly = false;
+            bloom.uniforms.bloomIntensity = 0.2;
+            bloom.uniforms.contrast = 128;
+            bloom.uniforms.brightness = -0.5;
+            viewer.scene.postProcessStages.add(bloom);
+
+            viewer.clock.onTick.addEventListener(onTick);
+
+            const defaultBasemap = BASEMAPS[0]?.id ?? "osm";
+            populateBasemapSelect(defaultBasemap);
+            await setBasemap(defaultBasemap);
+
+            const response = await fetch(CONFIG_URL);
+            configData = await response.json();
+            populateDatasetSelect(configData.collections);
+            configureTimeline(configData.timeline);
+            setActiveCollection(configData.collections[0].id);
+        }
+
+        function configureTimeline(timeline) {
+            const start = Cesium.JulianDate.fromIso8601(timeline.start);
+            const end = Cesium.JulianDate.fromIso8601(timeline.end);
+            viewer.clock.startTime = start.clone();
+            viewer.clock.stopTime = end.clone();
+            viewer.clock.currentTime = start.clone();
+            viewer.clock.multiplier = 60 * 60 * 24 * 365 * 5;
+            viewer.clock.shouldAnimate = true;
+            viewer.clock.clockRange = Cesium.ClockRange.LOOP_STOP;
+            viewer.timeline.zoomTo(start, end);
+        }
+
+        function populateDatasetSelect(collections) {
+            const select = document.getElementById("datasetSelect");
+            select.innerHTML = "";
+            collections.forEach((collection) => {
+                const option = document.createElement("option");
+                option.value = collection.id;
+                option.textContent = collection.label;
+                select.appendChild(option);
+            });
+            select.addEventListener("change", (event) => {
+                setActiveCollection(event.target.value);
+            });
+        }
+
+        function populateLegend(palette, labels) {
+            const list = document.getElementById("legendItems");
+            list.innerHTML = "";
+            palette.forEach((color, idx) => {
+                const li = document.createElement("li");
+                const swatch = document.createElement("span");
+                swatch.className = "swatch";
+                swatch.style.background = color;
+                li.appendChild(swatch);
+                li.appendChild(document.createTextNode(labels[idx] ?? `Class ${idx + 1}`));
+                list.appendChild(li);
+            });
+        }
+
+        function populateBasemapSelect(defaultId) {
+            const select = document.getElementById("basemapSelect");
+            select.innerHTML = "";
+            BASEMAPS.forEach((map) => {
+                const option = document.createElement("option");
+                option.value = map.id;
+                option.textContent = map.label;
+                select.appendChild(option);
+            });
+            select.value = defaultId;
+            select.addEventListener("change", (event) => {
+                setBasemap(event.target.value);
+            });
+        }
+
+        async function setBasemap(mapId) {
+            const config = BASEMAPS.find((m) => m.id === mapId);
+            if (!config || !viewer) return;
+
+            let provider;
+            if (config.type === "ion") {
+                provider = await Cesium.IonImageryProvider.fromAssetId(config.assetId);
+            } else {
+                provider = new Cesium.UrlTemplateImageryProvider({
+                    url: config.url,
+                    credit: config.credit,
+                    subdomains: config.subdomains,
+                });
+            }
+
+            if (baseLayer) {
+                viewer.imageryLayers.remove(baseLayer, true);
+            }
+            baseLayer = viewer.imageryLayers.addImageryProvider(provider, 0);
+        }
+
+
+        function setActiveCollection(collectionId) {
+            if (!configData) return;
+            const collection = configData.collections.find(
+                (c) => c.id === collectionId
+            );
+            if (!collection) return;
+
+            // Clear previous imagery layers except base
+            for (let i = viewer.imageryLayers.length - 1; i >= 0; i--) {
+                const layer = viewer.imageryLayers.get(i);
+                if (layer !== baseLayer) {
+                    viewer.imageryLayers.remove(layer, false);
+                }
+            }
+            activeLayers = [];
+
+            collection.layers.forEach((layerConfig) => {
+                const rectangle = Cesium.Rectangle.fromDegrees(
+                    layerConfig.bounds.west,
+                    layerConfig.bounds.south,
+                    layerConfig.bounds.east,
+                    layerConfig.bounds.north
+                );
+
+                const provider = new Cesium.SingleTileImageryProvider({
+                    url: IMAGE_URL_TEMPLATE
+                        .replace("{collection_id}", collectionId)
+                        .replace("{layer_id}", layerConfig.id),
+                    rectangle
+                });
+                const imageryLayer = viewer.imageryLayers.addImageryProvider(provider);
+                imageryLayer.alpha = 0.0;
+                activeLayers.push({
+                    layer: imageryLayer,
+                    start: Date.parse(layerConfig.start),
+                    end: Date.parse(layerConfig.end),
+                    fadeSeconds: layerConfig.fade_seconds,
+                    label: layerConfig.label,
+                    startText: layerConfig.start,
+                    endText: layerConfig.end,
+                });
+            });
+
+            const legendPalette = collection.legend_palette || [];
+            const legendLabels = collection.legend_labels || [];
+            populateLegend(legendPalette, legendLabels);
+            if (collection.layers.length > 0) {
+                const firstLayer = collection.layers[0];
+                updateActivePeriod(firstLayer.label, firstLayer.start, firstLayer.end);
+            }
+            flyToExtent(collection.extent);
+        }
+
+        function updateActivePeriod(label, start, end) {
+            const overlay = document.getElementById("activePeriod");
+            overlay.textContent = `${label}: ${start} → ${end}`;
+        }
+
+        function flyToExtent(extent) {
+            const rectangle = Cesium.Rectangle.fromDegrees(
+                extent.west,
+                extent.south,
+                extent.east,
+                extent.north
+            );
+            viewer.camera.flyTo({
+                destination: rectangle,
+                duration: 2.5
+            });
+        }
+
+        init().catch((error) => {
+            console.error("Unable to load Cesium demo config", error);
+            alert("Failed to load the Segama climate story configuration.");
+        });
+    </script>
+</body>
+</html>
