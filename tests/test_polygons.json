@@ -1,0 +1,118 @@
+{
+  "description": "Test polygons for querying Segama River climate assets",
+  "asset_bounds": {
+    "left": 117.45819325,
+    "bottom": 4.7165274,
+    "right": 118.82485992,
+    "top": 5.5915274
+  },
+  
+  "polygons": {
+    
+    "small_center": {
+      "description": "Small polygon in the center of Segama region",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [118.0, 5.0],
+          [118.2, 5.0],
+          [118.2, 5.2],
+          [118.0, 5.2],
+          [118.0, 5.0]
+        ]]
+      },
+      "area_approx_km2": 440,
+      "use_case": "Quick test, small area statistics"
+    },
+    
+    "kampung_dagat": {
+      "description": "Polygon around Kampung Dagat village (118.762, 5.367)",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [118.75, 5.35],
+          [118.77, 5.35],
+          [118.77, 5.38],
+          [118.75, 5.38],
+          [118.75, 5.35]
+        ]]
+      },
+      "area_approx_km2": 44,
+      "use_case": "Village-level climate analysis"
+    },
+    
+    "full_extent": {
+      "description": "Entire Segama region bounding box",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [117.46, 4.72],
+          [118.82, 4.72],
+          [118.82, 5.59],
+          [117.46, 5.59],
+          [117.46, 4.72]
+        ]]
+      },
+      "area_approx_km2": 10800,
+      "use_case": "Regional statistics for entire dataset"
+    },
+    
+    "northern_half": {
+      "description": "Northern half of the Segama region",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [117.46, 5.15],
+          [118.82, 5.15],
+          [118.82, 5.59],
+          [117.46, 5.59],
+          [117.46, 5.15]
+        ]]
+      },
+      "area_approx_km2": 5400,
+      "use_case": "Compare northern vs southern regions"
+    },
+    
+    "river_corridor": {
+      "description": "Narrow corridor following approximate river path",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [118.0, 4.9],
+          [118.5, 5.1],
+          [118.6, 5.3],
+          [118.5, 5.3],
+          [118.4, 5.1],
+          [117.9, 4.9],
+          [118.0, 4.9]
+        ]]
+      },
+      "area_approx_km2": 1200,
+      "use_case": "Riparian zone climate analysis"
+    },
+    
+    "tiny_pixel_test": {
+      "description": "Very small polygon (approximately one pixel)",
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [118.0, 5.0],
+          [118.01, 5.0],
+          [118.01, 5.01],
+          [118.0, 5.01],
+          [118.0, 5.0]
+        ]]
+      },
+      "area_approx_km2": 1.2,
+      "use_case": "Point-like query, minimum area test"
+    }
+  },
+  
+  "usage_examples": {
+    "curl_small_center": "curl -X POST 'http://localhost:8080/api/climate-indices/query/polygon' -F 'asset_id=YOUR_ASSET_ID' -F 'polygon_geojson={\"type\":\"Polygon\",\"coordinates\":[[[118.0,5.0],[118.2,5.0],[118.2,5.2],[118.0,5.2],[118.0,5.0]]]}'",
+    
+    "python_example": "import requests\\nimport json\\n\\npolygon = {\\n    'type': 'Polygon',\\n    'coordinates': [[[118.0, 5.0], [118.2, 5.0], [118.2, 5.2], [118.0, 5.2], [118.0, 5.0]]]\\n}\\n\\nresponse = requests.post(\\n    'http://localhost:8080/api/climate-indices/query/polygon',\\n    data={\\n        'asset_id': 'YOUR_ASSET_ID',\\n        'polygon_geojson': json.dumps(polygon)\\n    }\\n)\\nprint(response.json())",
+    
+    "javascript_fetch": "const polygon = {\\n  type: 'Polygon',\\n  coordinates: [[[118.0, 5.0], [118.2, 5.0], [118.2, 5.2], [118.0, 5.2], [118.0, 5.0]]]\\n};\\n\\nconst formData = new FormData();\\nformData.append('asset_id', 'YOUR_ASSET_ID');\\nformData.append('polygon_geojson', JSON.stringify(polygon));\\n\\nfetch('http://localhost:8080/api/climate-indices/query/polygon', {\\n  method: 'POST',\\n  body: formData\\n}).then(res => res.json()).then(console.log);"
+  }
+}

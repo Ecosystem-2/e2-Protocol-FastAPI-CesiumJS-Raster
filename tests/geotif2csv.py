@@ -23,7 +23,8 @@ csv_filename = data_folder/"p-pet-ratio_Segama_River_combined.csv"
 df0 = pd.DataFrame()
 for file in tqdm.tqdm(geotif_files):
     raster = read_geotiff(file)
-    variable_name = file.name.replace("_Segama_River.tif", "").lower()
+    variable_name = file.name.replace(".tif", "").lower()
+
     df = raster_to_dataframe(raster, variable_name=variable_name, exclude_columns=["band", "spatial_ref"], xy_decimal=6)
     if df0.columns.empty:
         df0 = df

@@ -1,0 +1,143 @@
+:root {
+    color-scheme: dark;
+}
+html, body {
+    height: 100%;
+    margin: 0;
+    font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #09111d;
+    color: #f4f4f4;
+}
+#cesiumContainer {
+    width: 100%;
+    height: 100%;
+}
+#toolbar {
+    position: absolute;
+    top: 2rem;
+    left:50%;
+    transform: translateX(-50%);
+    z-index: 20;
+    display: flex;
+    gap: 1rem;
+    background: rgba(8, 17, 30, 0.92);
+    padding: 0.75rem 1.5rem;
+    border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.45);
+    backdrop-filter: blur(12px);
+    align-items: center;
+}
+#toolbar label {
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.08em;
+    color: #9fc5ff;
+}
+#toolbar select {
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 999px;
+    padding: 0.35rem 1rem;
+    font-size: 0.95rem;
+}
+#legend {
+    position: absolute;
+    bottom: 7%;
+    right: 1%;
+    background: rgba(7, 14, 29, 0.88);
+    padding: 1rem 1.25rem;
+    border-radius: 12px;
+    width: 260px;
+    z-index: 20;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+#legend h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 0.95rem;
+    color: #9fc5ff;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+#legend ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+#legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    margin-bottom: 0.35rem;
+    color: #d9d9d9;
+}
+#legend li:last-child {
+    margin-bottom: 0;
+}
+.swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid rgba(255,255,255,0.35);
+    flex-shrink: 0;
+}
+#activePeriod {
+    position: absolute;
+    top: 3rem;
+    right: 2%;
+    z-index: 20;
+    background: rgba(7, 14, 29, 0.88);
+    padding: 0.6rem 1rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+#status {
+    position: absolute;
+    left: 50%;
+    bottom: 2rem;
+    transform: translateX(-50%);
+    background: rgba(7, 14, 29, 0.88);
+    border-radius: 10px;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    color: #f4f4f4;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    z-index: 40;
+    display: none;
+}
+#status.error {
+    background: rgba(128, 7, 7, 0.9);
+}
+.cesium-infoBox-description, .czml-info {
+    color: #0c1b2b;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+.czml-info strong {
+    color: #0f4070;
+}
+.cesium-infoBox {
+    color: #0c1b2b;
+}
+.cesium-viewer .cesium-infoBox-iframe {
+    background: #fff;
+}
+@media (max-width: 720px) {
+    #toolbar {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    #legend {
+        width: auto;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+    }
+    #activePeriod {
+        right: 50%;
+        transform: translateX(50%);
+    }
+}

@@ -209,3 +209,4 @@ __marimo__/
 .cursor/
 .vscode/
 data/
+~ data/uploads/*

@@ -16,9 +16,9 @@ def configure_logging(level: Optional[str] = None) -> None:
     )
 
     # Tame Uvicorn verbosity (keeps things quiet without custom handlers)
-    logging.getLogger("uvicorn.access").setLevel("WARNING")
-    logging.getLogger("uvicorn.error").setLevel("INFO")
-    logging.getLogger("fastapi").setLevel("INFO")
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.INFO)
+    logging.getLogger("fastapi").setLevel(logging.INFO)
 
 def get_logger(name: str) -> logging.Logger:
     return logging.getLogger(name)

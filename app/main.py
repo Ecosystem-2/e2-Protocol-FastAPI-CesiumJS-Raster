@@ -3,6 +3,9 @@ from app.core.middleware import add_middlewares
 # from app.core.lifespan import lifespan
 from app.core.logging import configure_logging
 from app.api.router import api_router, tags_metadata
+from dotenv import load_dotenv
+import os
+load_dotenv()
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI app."""
@@ -21,7 +24,7 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def root():
-        return {"service": "hob-fastapi", "routers": ["geotif_converter"]}
+        return {"service": "hob-fastapi", "routers": ["geotif_converter", "demo"]}
 
     return app
 

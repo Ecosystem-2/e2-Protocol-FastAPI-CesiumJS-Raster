@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Final, Sequence
-
+from typing import Any, Final
+import re
 import pandas as pd
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -30,10 +30,11 @@ geotif_service = GeoTiffService(
     accepted_content_types=ACCEPTED_CONTENT_TYPES,
 )
 
+
 # %% - Get GeoTIFF Metadata
 @router.post("/metadata", name="get_geotif_metadata")
 async def get_geotif_metadata(
-    files: Sequence[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     target_crs: str = DEFAULT_TARGET_CRS,
 ) -> dict[str, Any]:
     """Upload one or many GeoTIFFs and return their metadata."""
@@ -55,26 +56,29 @@ async def get_geotif_metadata(
         "items": items,
     }
 
+
 # %% - Convert GeoTIFF to CSV
 @router.post("/csv", name="convert_geotifs_to_csv")
 async def convert_geotifs_to_csv(
-    files: Sequence[UploadFile] = File(...),
+    files: list[UploadFile] = File(...),
     target_crs: str = DEFAULT_TARGET_CRS,
     drop_na: bool = True,
 ) -> StreamingResponse:
     """Upload GeoTIFFs and stream back CSV rows for each file."""
 
+
     async def _generator() -> bytes:
         header_written = False
         frames: list[pd.DataFrame] = []
         async for payload in geotif_service.iter_rasters(files, target_crs=target_crs):
+            variable_name = re.sub(r"\.(tif|tiff|geotiff)$", "", payload.variable_name.lower())
             df = raster_to_dataframe(
                 payload.raster,
-                variable_name=payload.variable_name,
+                variable_name=variable_name,
                 drop_na=drop_na,
                 exclude_columns=["band", "spatial_ref"],
             )
-            frames.append(df[["x", "y", payload.variable_name]])
+            frames.append(df[["x", "y", variable_name]])
 
         combined = frames[0]
         for frame in frames[1:]:
