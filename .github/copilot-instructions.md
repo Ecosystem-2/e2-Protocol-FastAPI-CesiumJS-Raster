@@ -106,6 +106,57 @@ GOOGLE_APPLICATION_CREDENTIALS=./data/gcs_credentials.json
 LOG_LEVEL=INFO  # optional
 ```
 
+### Google Cloud Storage Credentials Setup
+
+**Generating Service Account JSON Credentials:**
+
+1. **Access Google Cloud Console**
+   - Navigate to [Google Cloud Console](https://console.cloud.google.com/)
+   - Select your project (or create a new one)
+
+2. **Create Service Account**
+   - Go to **IAM & Admin** → **Service Accounts**
+   - Click **Create Service Account**
+   - Enter name (e.g., `climate-tiles-service`)
+   - Click **Create and Continue**
+
+3. **Grant Permissions**
+   - Add role: **Storage Admin** (for full bucket access)
+   - Or **Storage Object Admin** (for object-only access)
+   - Click **Continue** → **Done**
+
+4. **Generate JSON Key**
+   - Click on the newly created service account
+   - Go to **Keys** tab
+   - Click **Add Key** → **Create New Key**
+   - Select **JSON** format
+   - Click **Create** (file downloads automatically)
+
+5. **Configure Project**
+   ```bash
+   # Create data directory if it doesn't exist
+   mkdir -p data
+   
+   # Move downloaded JSON to project
+   mv ~/Downloads/your-project-xxxxx.json ./data/gcs_credentials.json
+   
+   # Update .env file
+   echo "GOOGLE_APPLICATION_CREDENTIALS=./data/gcs_credentials.json" >> .env
+   ```
+
+6. **Create GCS Bucket** (if not exists)
+   ```bash
+   # Using gcloud CLI
+   gcloud storage buckets create gs://climate-tiles-cluster --location=us-central1
+   
+   # Or via Console: Storage → Buckets → Create Bucket
+   ```
+
+**Security Notes:**
+- Never commit `gcs_credentials.json` to version control (already in `.gitignore`)
+- Service account should have minimum required permissions
+- Rotate keys periodically for enhanced security
+
 ### Testing Polygon Queries
 ```bash
 python tests/test_polygon_query.py  # CLI tool with test polygons
