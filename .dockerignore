@@ -1,0 +1,72 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Environment files (will be injected at runtime)
+.env
+.env.*
+
+# Credentials (will be mounted as volume or secret)
+data/gcs_credentials.json
+*.json
+!pyproject.toml
+
+# Documentation
+docs/
+*.md
+README.md
+LICENSE
+
+# Tests
+tests/
+*.test.py
+test_*.py
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+
+# Data files (too large for image)
+data/humid-heat-stress/
+data/p-pet-ratio/
+data/*.csv
+data/*.czml
+data/geotif/
+data/metadata/
+data/vis/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# Misc
+*.log
+.coverage
+.pytest_cache/
+htmlcov/

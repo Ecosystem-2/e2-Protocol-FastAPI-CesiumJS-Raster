@@ -6,9 +6,10 @@ Documentation for the HOB FastAPI Climate Raster Tile Server project.
 
 Start here if you're new to the project:
 
-1. **[Development Setup](dev_instruction.md)** - Clone repo, install dependencies, configure environment
-2. **[GCS Credentials Setup](setup-gcs-credentials.md)** - Generate Google Cloud service account credentials
-3. **[Troubleshooting Guide](troubleshooting.md)** - Common issues and solutions
+1. **[Development Setup](dev_instruction.md)** - Clone repo, install dependencies, configure environment (recommended for local development)
+2. **[Docker Deployment](docker-deployment.md)** - Production deployment using Docker
+3. **[GCS Credentials Setup](setup-gcs-credentials.md)** - Generate Google Cloud service account credentials
+4. **[Troubleshooting Guide](troubleshooting.md)** - Common issues and solutions
 
 ## Architecture & Design
 
