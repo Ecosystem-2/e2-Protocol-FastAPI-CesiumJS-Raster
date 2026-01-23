@@ -162,7 +162,7 @@ curl http://127.0.0.1:8080/api/climate-indices/assets
 ### 3. View Demo Tiles
 
 If the server is running, you can access the interactive demo:
-- Open `app/demo/ppet_tiles.html` in your browser
+- Open `app/demo/climate_tiles_viewer.html` in your browser
 - Ensure it points to `http://127.0.0.1:8080/api/climate-indices`
 
 ---

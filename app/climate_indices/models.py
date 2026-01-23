@@ -117,3 +117,4 @@ class AssetPersistenceResult(BaseModel):
     asset_id: str
     storage: AssetStorage
     raster: RasterSummary
+    replaced: bool = Field(default=False, description="True if an existing asset was replaced")

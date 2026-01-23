@@ -71,7 +71,7 @@ API Sketch (Implemented)
 
 Frontend (CesiumJS) - Implemented Demo
 ---------------------------------------
-**Demo**: `app/demo/ppet_tiles.html` - Interactive PPET visualization with polygon queries.
+**Demo**: `app/demo/climate_tiles_viewer.html` - Interactive PPET visualization with polygon queries.
 
 **Features**:
 - **Time slice selector**: Switch between 3 time periods (1981-2010, 2041-2070, 2071-2100) with auto-requery of drawn polygons.

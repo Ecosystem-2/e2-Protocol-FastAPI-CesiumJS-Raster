@@ -93,4 +93,10 @@ def persist_climate_index(
     if was_replaced:
         logger.info("Replaced existing asset %s with filename %s", asset_id, request.filename)
     
-    return AssetPersistenceResult(asset=request, asset_id=asset_id, storage=storage, raster=ingest.raster)
+    return AssetPersistenceResult(
+        asset=request,
+        asset_id=asset_id,
+        storage=storage,
+        raster=ingest.raster,
+        replaced=was_replaced
+    )

@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Climate Indices Tiles – Cesium Viewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/cesium@1.124.0/Build/Cesium/Widgets/widgets.css" />
+  <style>
+    html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; }
+    #controlPanel {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      padding: 12px;
+      background: rgba(20, 20, 20, 0.7);
+      color: #f5f5f5;
+      font-family: sans-serif;
+      z-index: 100;
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    }
+    #controlPanel h2 { margin: 0 0 8px 0; font-size: 15px; }
+    #controlPanel label { display: block; margin-bottom: 6px; font-size: 13px; }
+    #status { margin-top: 8px; font-size: 12px; color: #ffd27f; }
+    select { width: 100%; padding: 6px; border-radius: 4px; border: 1px solid #ccc; }
+    button { width: 100%; padding: 8px; margin-top: 8px; border-radius: 4px; border: none; background: #4CAF50; color: white; cursor: pointer; font-size: 13px; }
+    button:hover { background: #45a049; }
+    button:disabled { background: #666; cursor: not-allowed; }
+    button.secondary { background: #2196F3; }
+    button.secondary:hover { background: #0b7dda; }
+    #resultsPanel {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      max-width: 400px;
+      max-height: 80vh;
+      padding: 12px;
+      background: rgba(20, 20, 20, 0.85);
+      color: #f5f5f5;
+      font-family: monospace;
+      font-size: 11px;
+      z-index: 100;
+      border-radius: 6px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+      overflow-y: auto;
+      display: none;
+    }
+    #resultsPanel h3 { margin: 0 0 8px 0; font-size: 13px; font-family: sans-serif; }
+    #resultsPanel pre { margin: 0; white-space: pre-wrap; word-wrap: break-word; }
+    #helpPanel {
+      position: absolute; left: 260px; top: 10px; width: 420px;
+      background: rgba(42, 42, 42, 0.92); color: #eee; padding: 14px; border-radius: 6px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3); line-height: 1.5; display: none; z-index: 100;
+    }
+    #helpPanel h3 { margin: 0 0 10px 0; color: #4CAF50; font-size: 14px; border-bottom: 1px solid #555; padding-bottom: 6px; }
+    #helpPanel code { background: rgba(0,0,0,0.3); padding: 2px 5px; border-radius: 3px; color: #64B5F6; font-size: 11px; }
+    #helpPanel ul { margin: 8px 0; padding-left: 20px; }
+    #helpPanel li { margin: 5px 0; }
+    #helpPanel .endpoint { color: #FFD54F; font-weight: 500; }
+    #helpPanel .note { font-size: 11px; color: #999; font-style: italic; margin-top: 8px; }
+    .close-btn { float: right; cursor: pointer; font-size: 18px; font-weight: bold; color: #f5f5f5; }
+    .close-btn:hover { color: #ff6b6b; }
+  </style>
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <div id="controlPanel">
+    <h2>🌍 Climate Tiles</h2>
+    <label>
+      Index Type:
+      <select id="indexFilter">
+        <option value="all">All Indices</option>
+      </select>
+    </label>
+    <label>
+      Time Slice:
+      <select id="sliceSelect"></select>
+    </label>
+    <button id="drawPolygonBtn">Draw Region & Query Stats</button>
+    <button id="clearPolygonsBtn" class="secondary" style="display:none">Clear All Polygons</button>
+    <button id="exportPixelsBtn" class="secondary" style="display:none">Export Pixel Data (CSV)</button>
+    <button id="toggleHelpBtn" class="secondary">Show API Endpoints ℹ️</button>
+    <div id="status"></div>
+  </div>
+  
+  <div id="resultsPanel">
+    <span class="close-btn" onclick="document.getElementById('resultsPanel').style.display='none'">&times;</span>
+    <h3>Query Results</h3>
+    <pre id="resultsContent"></pre>
+  </div>
+  
+  <div id="helpPanel">
+    <span class="close-btn" onclick="document.getElementById('helpPanel').style.display='none'">&times;</span>
+    <h3>🌐 Demonstrated API Endpoints</h3>
+    
+    <p><strong>Tile Serving:</strong></p>
+    <ul>
+      <li><code class="endpoint">GET /tiles/{asset_id}/{z}/{x}/{y}.png</code><br>
+        Serves PNG tiles with colourmap rendering for Cesium visualization</li>
+    </ul>
+    
+    <p><strong>Polygon Queries:</strong></p>
+    <ul>
+      <li><code class="endpoint">POST /query/polygons/stats</code><br>
+        Computes zonal statistics (min/max/mean/std/median) for drawn polygons across multiple assets</li>
+      <li><code class="endpoint">POST /query/polygons/pixels</code><br>
+        Extracts raw pixel values as CSV (lon, lat, asset_id, value) - used by "Export Pixel Data" button</li>
+    </ul>
+    
+    <p><strong>Asset Discovery:</strong></p>
+    <ul>
+      <li><code class="endpoint">GET /assets</code><br>
+        Lists all available climate index assets (used to populate time slice selector)</li>
+    </ul>
+    
+    <p class="note">💡 All endpoints use FormData for multipart requests. Polygon queries support multiple assets and geometries simultaneously.</p>
+  </div>
+
+  <script src="https://unpkg.com/cesium@1.124.0/Build/Cesium/Cesium.js"></script>
+  <script>
+    // ============================================================================
+    // CONFIGURATION - Define all tile URLs with consistent colormap and scale
+    // ============================================================================
+    
+    const API_BASE = "http://127.0.0.1:8080/api/climate-indices";
+    
+    // Colormap configurations for different index types
+    // Note: humid-heat-stress uses 'rdylgn_r' (reversed Red-Yellow-Green)
+    // showing green (low threat) → yellow → red (high threat)
+    const INDEX_CONFIGS = {
+      'ppet': { colormap: 'blues', scale_min: 0, scale_max: 7 },
+      'humid-heat-stress': { colormap: 'rdylgn_r', scale_min: 0, scale_max: 5 },
+      'temperature': { colormap: 'rdylbu_r', scale_min: -10, scale_max: 40 },
+      'precipitation': { colormap: 'bupu', scale_min: 0, scale_max: 500 },
+      'default': { colormap: 'viridis', scale_min: 0, scale_max: 100 }
+    };
+    
+    // Bounding rectangle for Segama River region (fallback if not in asset metadata)
+    const SEGAMA_RECT = Cesium.Rectangle.fromDegrees(117.45819325, 4.7165274, 118.8248599, 5.5915274);
+    
+    // Tile slices - will be populated from API
+    let slices = [];
+    let allSlices = []; // Keep all slices for filtering
+    
+    // ============================================================================
+    // FETCH ASSETS FROM API
+    // ============================================================================
+    
+    async function fetchAvailableSlices() {
+      try {
+        setStatus("Loading available climate assets...");
+        
+        const response = await fetch(`${API_BASE}/assets?limit=100&skip=0`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        const assets = data.assets || [];
+        
+        if (!assets || assets.length === 0) {
+          setStatus("No climate assets found in database");
+          return [];
+        }
+        
+        // Populate index type filter with unique index types
+        const indexTypes = [...new Set(assets.map(a => a.index_type))].sort();
+        const indexFilter = document.getElementById('indexFilter');
+        indexTypes.forEach(type => {
+          const opt = document.createElement('option');
+          opt.value = type;
+          opt.textContent = type.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          indexFilter.appendChild(opt);
+        });
+        
+        // Add filter change listener
+        indexFilter.addEventListener('change', () => filterSlicesByIndex(indexFilter.value));
+        
+        // Convert API assets to slice format
+        allSlices = assets.map((asset, idx) => {
+          const timeRange = asset.time_range || {};
+          const startYear = timeRange.start ? new Date(timeRange.start).getFullYear() : 'Unknown';
+          const endYear = timeRange.end ? new Date(timeRange.end).getFullYear() : 'Unknown';
+          const indexType = asset.index_type || 'unknown';
+          
+          // Determine bounds from raster metadata
+          let rect;
+          if (asset.raster?.bounds) {
+            const b = asset.raster.bounds;
+            if (b.left !== undefined && b.bottom !== undefined && b.right !== undefined && b.top !== undefined) {
+              rect = Cesium.Rectangle.fromDegrees(b.left, b.bottom, b.right, b.top);
+            } else {
+              rect = SEGAMA_RECT;
+            }
+          } else {
+            rect = SEGAMA_RECT;
+          }
+          
+          // Create label from index type and time range
+          const indexLabel = indexType.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+          let label = `${indexLabel} ${startYear}–${endYear}`;
+          if (asset.filename && asset.filename.includes('Historic')) {
+            label += ' (Historic)';
+          } else if (asset.filename && asset.filename.includes('SSP245')) {
+            label += ' (SSP245)';
+          }
+          
+          return {
+            id: `climate-${idx}`,
+            label: label,
+            assetId: asset.id,
+            indexType: indexType,
+            start: timeRange.start || null,
+            end: timeRange.end || null,
+            rect: rect,
+            filename: asset.filename
+          };
+        });
+        
+        // Initially show all slices
+        slices = [...allSlices];
+        
+        // Sort by start date
+        slices.sort((a, b) => {
+          if (!a.start) return 1;
+          if (!b.start) return -1;
+          return new Date(a.start) - new Date(b.start);
+        });
+        
+        // Build tile URLs with appropriate colormap for each index type
+        slices.forEach(slice => {
+          const config = INDEX_CONFIGS[slice.indexType] || INDEX_CONFIGS['default'];
+          const params = `colormap_name=${config.colormap}&scale_min=${config.scale_min}&scale_max=${config.scale_max}`;
+          slice.url = `${API_BASE}/tiles/${slice.assetId}/{z}/{x}/{y}.png?${params}`;
+        });
+        
+        setStatus(`Loaded ${slices.length} climate asset(s)`);
+        return slices;
+        
+      } catch (error) {
+        setStatus(`Failed to load assets: ${error.message}`);
+        console.error("Asset fetch error:", error);
+        return [];
+      }
+    }
+    
+    function filterSlicesByIndex(indexType) {
+      // Remove existing layers
+      layersById.forEach((layer, id) => {
+        imageryLayers.remove(layer, false);
+      });
+      layersById.clear();
+      
+      // Filter slices
+      if (indexType === 'all') {
+        slices = [...allSlices];
+      } else {
+        slices = allSlices.filter(s => s.indexType === indexType);
+      }
+      
+      // Rebuild tile URLs for filtered slices
+      slices.forEach(slice => {
+        const config = INDEX_CONFIGS[slice.indexType] || INDEX_CONFIGS['default'];
+        const params = `colormap_name=${config.colormap}&scale_min=${config.scale_min}&scale_max=${config.scale_max}`;
+        slice.url = `${API_BASE}/tiles/${slice.assetId}/{z}/{x}/{y}.png?${params}`;
+      });
+      
+      // Re-add layers and update UI
+      addLayers();
+      populateSelect();
+      if (slices.length > 0) {
+        showSlice(slices[0].id);
+        setStatus(`Showing ${slices.length} ${indexType === 'all' ? 'climate' : indexType} assets`);
+      } else {
+        setStatus(`No ${indexType} assets found`);
+      }
+    }
+    
+    // ============================================================================
+    // CESIUM SETUP
+    // ============================================================================
+    
+    // Use Cesium's default token (suitable for development/testing)
+    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
+
+    const osmViewModel = new Cesium.ProviderViewModel({
+      name: "OpenStreetMap",
+      tooltip: "OpenStreetMap base layer",
+      iconUrl: Cesium.buildModuleUrl("Widgets/Images/ImageryProviders/openStreetMap.png"),
+      creationFunction: () =>
+        new Cesium.OpenStreetMapImageryProvider(),
+    });
+
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      animation: true,
+      timeline: true,
+      baseLayerPicker: true,
+      // imageryProviderViewModels: [[osmViewModel]],
+      imageryProvider: new Cesium.OpenStreetMapImageryProvider(),
+      selectedImageryProviderViewModel: osmViewModel,
+      terrainProvider: new Cesium.EllipsoidTerrainProvider(),
+    });
+
+
+    const imageryLayers = viewer.imageryLayers;
+    const layersById = new Map();
+
+    function setStatus(msg) {
+      const el = document.getElementById("status");
+      if (!el) return;
+      el.textContent = msg || "";
+    }
+
+    function addLayers() {
+      slices.forEach(slice => {
+        const provider = new Cesium.UrlTemplateImageryProvider({
+          url: slice.url,
+          maximumLevel: 14,
+          credit: "Climate tiles",
+          rectangle: slice.rect || SEGAMA_RECT,
+        });
+        const layer = imageryLayers.addImageryProvider(provider);
+        layer.show = false;
+        layer.alpha = 0.85; // slightly transparent to keep basemap visible
+        layersById.set(slice.id, layer);
+      });
+    }
+
+    function populateSelect() {
+      const select = document.getElementById("sliceSelect");
+      if (!select) return;
+      select.innerHTML = "";
+      slices.forEach((s, idx) => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.label} (${s.start} → ${s.end})`;
+        if (idx === 0) opt.selected = true;
+        select.appendChild(opt);
+      });
+      select.addEventListener("change", () => showSlice(select.value));
+    }
+
+    function showSlice(sliceId) {
+      layersById.forEach((layer, id) => {
+        layer.show = id === sliceId;
+      });
+      const active = slices.find(s => s.id === sliceId);
+      setStatus(active ? `Showing ${active.label}` : "");
+      if (active && active.rect) {
+        viewer.camera.flyTo({ destination: active.rect });
+      }
+      
+      // Auto re-query if polygons exist
+      if (allPolygonPositions && allPolygonPositions.length > 0) {
+        queryAllPolygons();
+      }
+    }
+    
+    // ============================================================================
+    // REGION SELECTION & QUERY
+    // ============================================================================
+    
+    let drawingHandler = null;
+    let drawnPolygons = []; // Store multiple polygons
+    let allPolygonPositions = []; // Store all polygon positions for re-querying
+    
+    function enablePolygonDrawing() {
+      const drawBtn = document.getElementById("drawPolygonBtn");
+      if (!drawBtn) return;
+      
+      // Don't clear existing polygons - allow multiple
+      
+      // Clean up existing handler
+      if (drawingHandler) {
+        drawingHandler.destroy();
+        drawingHandler = null;
+      }
+      
+      drawBtn.disabled = true;
+      drawBtn.textContent = "Click to draw polygon...";
+      setStatus("Click on map to draw polygon. Double-click to finish.");
+      
+      const positions = [];
+      
+      drawingHandler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+      
+      // Left click to add point
+      drawingHandler.setInputAction((click) => {
+        const cartesian = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+        if (cartesian) {
+          positions.push(cartesian);
+          
+          // Draw or update the current polygon being drawn
+          if (positions.length > 0) {
+            // Remove temporary polygon if exists
+            const tempPolygon = drawnPolygons[drawnPolygons.length - 1];
+            if (tempPolygon && tempPolygon.isTemporary) {
+              viewer.entities.remove(tempPolygon);
+              drawnPolygons.pop();
+            }
+            
+            // Add updated temporary polygon
+            const polygon = viewer.entities.add({
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(positions),
+                material: Cesium.Color.YELLOW.withAlpha(0.3),
+                outline: true,
+                outlineColor: Cesium.Color.YELLOW,
+                outlineWidth: 2
+              }
+            });
+            polygon.isTemporary = true;
+            drawnPolygons.push(polygon);
+          }
+        }
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+      
+      // Double click to finish
+      drawingHandler.setInputAction(() => {
+        if (positions.length >= 3) {
+          drawingHandler.destroy();
+          drawingHandler = null;
+          drawBtn.disabled = false;
+          drawBtn.textContent = "Draw Another Polygon";
+          
+          // Mark the last polygon as complete
+          const lastPolygon = drawnPolygons[drawnPolygons.length - 1];
+          if (lastPolygon) {
+            lastPolygon.isTemporary = false;
+          }
+          
+          // Store positions for this polygon
+          allPolygonPositions.push(positions.slice());
+          
+          // Show export and clear buttons
+          document.getElementById("exportPixelsBtn").style.display = "block";
+          document.getElementById("clearPolygonsBtn").style.display = "block";
+          
+          // Query all polygons
+          queryAllPolygons();
+        } else {
+          setStatus("Need at least 3 points for polygon");
+        }
+      }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+    }
+    
+    function clearAllPolygons() {
+      // Remove all drawn polygons
+      drawnPolygons.forEach(polygon => {
+        viewer.entities.remove(polygon);
+      });
+      drawnPolygons = [];
+      allPolygonPositions = [];
+      
+      // Hide buttons
+      document.getElementById("exportPixelsBtn").style.display = "none";
+      document.getElementById("clearPolygonsBtn").style.display = "none";
+      document.getElementById("drawPolygonBtn").textContent = "Draw Region & Query Stats";
+      
+      // Clear results
+      document.getElementById("resultsPanel").style.display = "none";
+      setStatus("All polygons cleared");
+    }
+    
+    function queryAllPolygons() {
+      if (allPolygonPositions.length === 0) {
+        setStatus("No polygons drawn");
+        return;
+      }
+      
+      // Convert all polygons to GeoJSON
+      const geojsonPolygons = allPolygonPositions.map(positions => {
+        const coordinates = positions.map(pos => {
+          const cartographic = Cesium.Cartographic.fromCartesian(pos);
+          return [
+            Cesium.Math.toDegrees(cartographic.longitude),
+            Cesium.Math.toDegrees(cartographic.latitude)
+          ];
+        });
+        // Close the polygon
+        coordinates.push(coordinates[0]);
+        
+        return {
+          type: "Polygon",
+          coordinates: [coordinates]
+        };
+      });
+      
+      setStatus(`Querying ${allPolygonPositions.length} polygon(s) across all time periods...`);
+      
+      // Query ALL assets (all time periods) for all drawn polygons
+      const allAssetIds = slices.map(s => s.assetId).join(",");
+      
+      // Query the API with FormData (NEW ENDPOINT: /query/polygons/stats)
+      const formData = new FormData();
+      formData.append("asset_ids", allAssetIds);
+      formData.append("polygons_geojson", JSON.stringify(geojsonPolygons));
+      
+      fetch(`${API_BASE}/query/polygons/stats`, {
+        method: "POST",
+        body: formData
+      })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(err => {
+            throw new Error(err.detail || `HTTP ${response.status}`);
+          }).catch(() => {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          });
+        }
+        return response.json();
+      })
+      .then(data => {
+        displayResults(data);
+        const firstAssetPolygons = Object.values(data.results)[0]?.polygons || [];
+        const totalPixels = firstAssetPolygons.reduce((sum, p) => sum + (p.stats?.count || 0), 0);
+        setStatus(`Query complete: ${totalPixels} pixels analysed across ${data.polygon_count} polygon(s) and ${data.asset_count} time period(s)`);
+      })
+      .catch(error => {
+        setStatus(`Query failed: ${error.message}`);
+        console.error("Query error:", error);
+      });
+    }
+    
+    function displayResults(data) {
+      const panel = document.getElementById("resultsPanel");
+      const content = document.getElementById("resultsContent");
+      
+      if (!panel || !content) return;
+      
+      // Format results for all time periods
+      const formatted = {
+        "Summary": {
+          "Total Assets": data.asset_count,
+          "Total Polygons": data.polygon_count
+        },
+        "Time Periods": {}
+      };
+      
+      // Organize results by time period
+      for (const [assetId, assetData] of Object.entries(data.results)) {
+        const slice = slices.find(s => s.assetId === assetId);
+        const label = slice ? slice.label : assetId;
+        formatted["Time Periods"][label] = {
+          "Index Type": assetData.index_type || "N/A",
+          "Units": assetData.units || "N/A",
+          "Polygons": {}
+        };
+        
+        // Process each polygon
+        assetData.polygons.forEach((polygonData, idx) => {
+          const polygonLabel = `Polygon ${idx + 1}`;
+          
+          if (polygonData.error) {
+            formatted["Time Periods"][label]["Polygons"][polygonLabel] = {
+              "Error": polygonData.error
+            };
+          } else {
+            const stats = polygonData.stats;
+            formatted["Time Periods"][label]["Polygons"][polygonLabel] = {
+              "Pixel Count": stats?.count || 0,
+              "Min": stats?.min?.toFixed(4) || "N/A",
+              "Max": stats?.max?.toFixed(4) || "N/A",
+              "Mean": stats?.mean?.toFixed(4) || "N/A",
+              "Std Dev": stats?.std?.toFixed(4) || "N/A",
+              "Median": stats?.median?.toFixed(4) || "N/A"
+            };
+          }
+        });
+        
+        formatted["Time Periods"][label]["Time Range"] = assetData.metadata?.time_range || {};
+      }
+      
+      content.textContent = JSON.stringify(formatted, null, 2);
+      panel.style.display = "block";
+    }
+    
+    function exportPixelData() {
+      if (!allPolygonPositions || allPolygonPositions.length === 0) {
+        setStatus("Draw a polygon first!");
+        return;
+      }
+      
+      // Convert all polygons to GeoJSON
+      const geojsonPolygons = allPolygonPositions.map(positions => {
+        const coordinates = positions.map(pos => {
+          const cartographic = Cesium.Cartographic.fromCartesian(pos);
+          return [
+            Cesium.Math.toDegrees(cartographic.longitude),
+            Cesium.Math.toDegrees(cartographic.latitude)
+          ];
+        });
+        coordinates.push(coordinates[0]);
+        
+        return {
+          type: "Polygon",
+          coordinates: [coordinates]
+        };
+      });
+      
+      setStatus(`Exporting pixel data for ${allPolygonPositions.length} polygon(s) as CSV...`);
+      
+      // Query ALL assets for pixel data
+      const allAssetIds = slices.map(s => s.assetId).join(",");
+      
+      const formData = new FormData();
+      formData.append("asset_ids", allAssetIds);
+      formData.append("polygons_geojson", JSON.stringify(geojsonPolygons));
+      formData.append("format", "csv");
+      
+      fetch(`${API_BASE}/query/polygons/pixels`, {
+        method: "POST",
+        body: formData
+      })
+      .then(response => {
+        if (!response.ok) {
+          return response.json().then(err => {
+            throw new Error(err.detail || `HTTP ${response.status}`);
+          }).catch(() => {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          });
+        }
+        return response.text();
+      })
+      .then(csvData => {
+        // Download CSV file
+        const blob = new Blob([csvData], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `ppet_pixels_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        const lines = csvData.split('\n').length - 1;
+        setStatus(`CSV exported: ${lines.toLocaleString()} pixels saved`);
+      })
+      .catch(error => {
+        setStatus(`Export failed: ${error.message}`);
+        console.error("Export error:", error);
+      });
+    }
+    
+    // Wire up the draw button
+    document.getElementById("drawPolygonBtn")?.addEventListener("click", enablePolygonDrawing);
+    
+    // Wire up the clear button
+    document.getElementById("clearPolygonsBtn")?.addEventListener("click", clearAllPolygons);
+    
+    // Wire up the export button
+    document.getElementById("exportPixelsBtn")?.addEventListener("click", exportPixelData);
+    
+    // Wire up help toggle
+    document.getElementById("toggleHelpBtn")?.addEventListener("click", () => {
+      const panel = document.getElementById("helpPanel");
+      const btn = document.getElementById("toggleHelpBtn");
+      if (panel.style.display === "block") {
+        panel.style.display = "none";
+        btn.textContent = "Show API Endpoints ℹ️";
+      } else {
+        panel.style.display = "block";
+        btn.textContent = "Hide API Endpoints";
+      }
+    });
+    
+    // ============================================================================
+    // INITIALIZE
+    // ============================================================================
+    
+    // Initialize demo - fetch assets first, then setup
+    async function initialize() {
+      await fetchAvailableSlices();
+      
+      if (slices.length === 0) {
+        setStatus("⚠️ No climate assets available. Please upload GeoTIFF files using the ingest demo.");
+        return;
+      }
+      
+      addLayers();
+      populateSelect();
+      showSlice(slices[0].id);
+    }
+    
+    // Start initialization
+    initialize();
+  </script>
+</body>
+</html>

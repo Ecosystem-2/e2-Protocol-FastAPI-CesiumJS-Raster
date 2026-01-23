@@ -124,4 +124,5 @@ async def ingest_and_store_climate_index(
     response_dict = response.model_dump()
     response_dict["asset_id"] = persisted.asset_id
     response_dict["storage"] = persisted.storage.model_dump()
+    response_dict["replaced"] = persisted.replaced
     return response_dict

@@ -122,42 +122,86 @@
     const PPET_SCALE_MIN = 0;
     const PPET_SCALE_MAX = 7;
     
-    // Bounding rectangle for Segama River region
+    // Bounding rectangle for Segama River region (fallback if not in asset metadata)
     const SEGAMA_RECT = Cesium.Rectangle.fromDegrees(117.45819325, 4.7165274, 118.8248599, 5.5915274);
     
-    // Tile slice definitions
-    const slices = [
-      {
-        id: "ppet-1981-2010",
-        label: "PPET 1981–2010 (Historic)",
-        assetId: "6932d655437c9ba78a6ef081",
-        start: "1981-01-01",
-        end: "2010-12-31",
-        rect: SEGAMA_RECT
-      },
-      {
-        id: "ppet-2041-2070",
-        label: "PPET 2041–2070 (SSP245)",
-        assetId: "6932d634437c9ba78a6ef080",
-        start: "2041-01-01",
-        end: "2070-12-31",
-        rect: SEGAMA_RECT
-      },
-      {
-        id: "ppet-2071-2100",
-        label: "PPET 2071–2100 (SSP245)",
-        assetId: "6932d5dd437c9ba78a6ef07f",
-        start: "2071-01-01",
-        end: "2100-12-31",
-        rect: SEGAMA_RECT
-      }
-    ];
+    // Tile slices - will be populated from API
+    let slices = [];
     
-    // Build tile URLs with consistent parameters
-    slices.forEach(slice => {
-      const params = `colormap_name=${PPET_COLORMAP}&scale_min=${PPET_SCALE_MIN}&scale_max=${PPET_SCALE_MAX}`;
-      slice.url = `${API_BASE}/tiles/${slice.assetId}/{z}/{x}/{y}.png?${params}`;
-    });
+    // ============================================================================
+    // FETCH ASSETS FROM API
+    // ============================================================================
+    
+    async function fetchAvailableSlices() {
+      try {
+        setStatus("Loading available PPET assets...");
+        
+        const response = await fetch(`${API_BASE}/assets/search?index=ppet`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const assets = await response.json();
+        
+        if (!assets || assets.length === 0) {
+          setStatus("No PPET assets found in database");
+          return [];
+        }
+        
+        // Convert API assets to slice format
+        slices = assets.map((asset, idx) => {
+          const timeRange = asset.time_range || {};
+          const startYear = timeRange.start ? new Date(timeRange.start).getFullYear() : 'Unknown';
+          const endYear = timeRange.end ? new Date(timeRange.end).getFullYear() : 'Unknown';
+          
+          // Determine bounds from raster metadata
+          let rect = SEGAMA_RECT; // fallback
+          if (asset.raster?.bounds) {
+            const b = asset.raster.bounds;
+            rect = Cesium.Rectangle.fromDegrees(b.west, b.south, b.east, b.north);
+          }
+          
+          // Create label from filename or time range
+          let label = `PPET ${startYear}–${endYear}`;
+          if (asset.filename && asset.filename.includes('Historic')) {
+            label += ' (Historic)';
+          } else if (asset.filename && asset.filename.includes('SSP245')) {
+            label += ' (SSP245)';
+          }
+          
+          return {
+            id: `ppet-${idx}`,
+            label: label,
+            assetId: asset._id,
+            start: timeRange.start || null,
+            end: timeRange.end || null,
+            rect: rect,
+            filename: asset.filename
+          };
+        });
+        
+        // Sort by start date
+        slices.sort((a, b) => {
+          if (!a.start) return 1;
+          if (!b.start) return -1;
+          return new Date(a.start) - new Date(b.start);
+        });
+        
+        // Build tile URLs
+        slices.forEach(slice => {
+          const params = `colormap_name=${PPET_COLORMAP}&scale_min=${PPET_SCALE_MIN}&scale_max=${PPET_SCALE_MAX}`;
+          slice.url = `${API_BASE}/tiles/${slice.assetId}/{z}/{x}/{y}.png?${params}`;
+        });
+        
+        setStatus(`Loaded ${slices.length} PPET time slices`);
+        return slices;
+        
+      } catch (error) {
+        setStatus(`Failed to load assets: ${error.message}`);
+        console.error("Asset fetch error:", error);
+        return [];
+      }
+    }
     
     // ============================================================================
     // CESIUM SETUP
@@ -513,11 +557,22 @@
     // INITIALIZE
     // ============================================================================
     
-    addLayers();
-    populateSelect();
-    if (slices.length) {
+    // Initialize demo - fetch assets first, then setup
+    async function initialize() {
+      await fetchAvailableSlices();
+      
+      if (slices.length === 0) {
+        setStatus("⚠️ No PPET assets available. Please upload GeoTIFF files first.");
+        return;
+      }
+      
+      addLayers();
+      populateSelect();
       showSlice(slices[0].id);
     }
+    
+    // Start initialization
+    initialize();
   </script>
 </body>
 </html>

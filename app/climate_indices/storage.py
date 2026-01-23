@@ -36,6 +36,7 @@ class GCSBlobStore:
         filename: Optional[str] = None,
         content_type: Optional[str] = None,
     ) -> str:
+        """Save bytes to GCS, replacing existing blob if it exists."""
         if not payload:
             raise ValueError("Cannot store empty payload.")
 
@@ -44,6 +45,14 @@ class GCSBlobStore:
             name = f"{self.prefix}/{name}"
 
         blob = self._bucket.blob(name)
+        
+        # Check if blob exists and delete it first to avoid duplicates
+        if blob.exists():
+            logger.info("Replacing existing blob at gs://%s/%s", self.bucket_name, name)
+            blob.delete()
+            # Recreate blob reference after deletion
+            blob = self._bucket.blob(name)
+        
         blob.upload_from_string(payload, content_type=content_type or "image/tiff")
         uri = f"gs://{self.bucket_name}/{name}"
         logger.info("Stored blob in GCS at %s (%s bytes)", uri, len(payload))
