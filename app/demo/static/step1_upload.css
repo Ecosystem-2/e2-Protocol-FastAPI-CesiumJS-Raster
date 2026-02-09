@@ -1,0 +1,216 @@
+/* Step 1 Upload - Specific Styles */
+
+/* Modern file upload styling */
+.file-input-wrapper {
+  position: relative;
+  overflow: hidden;
+  display: inline-block;
+  width: 100%;
+}
+
+.file-input-wrapper input[type=file] {
+  position: absolute;
+  left: -9999px;
+}
+
+.file-input-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+  border: 2px dashed rgba(96, 165, 250, 0.5);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(10px);
+}
+
+.file-input-label:hover {
+  background: rgba(30, 41, 59, 0.8);
+  border-color: #60a5fa;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(96, 165, 250, 0.2);
+}
+
+.file-input-label.has-file {
+  border-style: solid;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: #10b981;
+}
+
+.file-icon {
+  font-size: 32px;
+  margin-right: 12px;
+}
+
+.file-text {
+  color: #60a5fa;
+  font-weight: 500;
+  font-size: 15px;
+}
+
+.file-input-label.has-file .file-text {
+  color: #10b981;
+}
+
+/* Better datetime input styling */
+input[type="datetime-local"] {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1px solid rgba(96, 165, 250, 0.2) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  color: #e2e8f0 !important;
+  font-size: 14px !important;
+  transition: all 0.3s ease !important;
+  color-scheme: dark;
+}
+
+input[type="datetime-local"]:focus {
+  outline: none !important;
+  border-color: #60a5fa !important;
+  background: rgba(30, 41, 59, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  filter: invert(0.8);
+  cursor: pointer;
+}
+
+/* Improved select styling */
+select {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1px solid rgba(96, 165, 250, 0.2) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  color: #e2e8f0 !important;
+  cursor: pointer;
+  transition: all 0.3s ease !important;
+}
+
+select:focus {
+  outline: none !important;
+  border-color: #60a5fa !important;
+  background: rgba(30, 41, 59, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+}
+
+select option {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 8px;
+}
+
+/* Better text input styling */
+input[type="text"] {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border: 1px solid rgba(96, 165, 250, 0.2) !important;
+  border-radius: 8px !important;
+  padding: 12px !important;
+  color: #e2e8f0 !important;
+  transition: all 0.3s ease !important;
+}
+
+input[type="text"]:focus {
+  outline: none !important;
+  border-color: #60a5fa !important;
+  background: rgba(30, 41, 59, 0.8) !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1) !important;
+}
+
+input[type="text"]::placeholder {
+  color: #64748b;
+}
+
+/* Enhanced control panel */
+.control-panel {
+  background: rgba(15, 23, 42, 0.4) !important;
+  border: 1px solid rgba(96, 165, 250, 0.15) !important;
+  border-radius: 16px !important;
+  padding: 28px !important;
+  backdrop-filter: blur(20px);
+}
+
+.control-group {
+  margin-bottom: 24px;
+}
+
+.control-group:last-of-type {
+  margin-bottom: 28px;
+}
+
+.control-group label {
+  display: block;
+  margin-bottom: 8px;
+  color: #e2e8f0;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+.hint-text {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 6px;
+  display: block;
+  line-height: 1.4;
+}
+
+/* Modern button styling */
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3) !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  padding: 14px 24px !important;
+  transition: all 0.3s ease !important;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.5) !important;
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0) !important;
+}
+
+/* Enhanced stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.stat-card {
+  background: rgba(15, 23, 42, 0.6) !important;
+  border: 1px solid rgba(96, 165, 250, 0.2) !important;
+  border-radius: 12px !important;
+  padding: 16px !important;
+  backdrop-filter: blur(10px);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  border-color: #60a5fa;
+  box-shadow: 0 4px 15px rgba(96, 165, 250, 0.15);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 15px !important;
+  color: #e2e8f0 !important;
+  font-weight: 600;
+  word-break: break-word;
+}

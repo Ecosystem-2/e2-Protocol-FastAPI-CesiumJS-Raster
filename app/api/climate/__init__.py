@@ -1,3 +1,3 @@
-from .endpoints import router
+from app.api.climate.endpoints import router
 
 __all__ = ["router"]

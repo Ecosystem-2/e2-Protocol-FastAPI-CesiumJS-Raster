@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demo 3: Polygon Selection Workflow</title>
+  <link rel="stylesheet" href="../static/demo3-styles.css">
+</head>
+<body>
+  <div class="workflow-container">
+    <!-- Header -->
+    <div class="workflow-header">
+      <h1>🌍 Polygon Selection Management Workflow</h1>
+      <p>Interactive demonstration of climate data analysis: from GeoTIFF upload to CZML visualisation</p>
+    </div>
+
+    <!-- Progress Overview -->
+    <div class="step-content">
+      <h2 style="margin-top: 0;">Workflow Overview</h2>
+      <p style="color: #6b7280; margin-bottom: 20px;">
+        This comprehensive workflow demonstrates the complete pipeline for selecting and analysing climate data regions. 
+        Each step builds upon the previous one, culminating in exportable CZML visualisations for Cesium.
+      </p>
+      
+      <div style="background: #f3f4f6; border-radius: 8px; padding: 20px; margin-bottom: 30px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-size: 14px; color: #6b7280; margin-bottom: 5px;">Overall Progress</div>
+            <div style="font-size: 24px; font-weight: bold; color: #2563eb;">
+              <span id="progressPercentage">0</span>% Complete
+            </div>
+          </div>
+          <button class="btn btn-secondary" onclick="resetWorkflow()" style="margin: 0;">
+            Reset Workflow
+          </button>
+        </div>
+        <div style="width: 100%; height: 8px; background: #e5e7eb; border-radius: 4px; margin-top: 15px; overflow: hidden;">
+          <div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #2563eb 0%, #10b981 100%); transition: width 0.5s;"></div>
+        </div>
+      </div>
+
+      <!-- Quick Start Buttons -->
+      <div style="text-align: center; margin-bottom: 40px;">
+        <button class="btn btn-primary" onclick="startWorkflow()" style="font-size: 16px; padding: 14px 32px; margin-right: 10px;">
+          🚀 Start from Upload
+        </button>
+        <button class="btn btn-secondary" onclick="skipToStep2()" style="font-size: 16px; padding: 14px 32px;">
+          🗺️ Skip to View Tiles
+        </button>
+        <p style="color: #6b7280; font-size: 13px; margin-top: 10px;">
+          Start from the beginning or jump directly to tile viewer
+        </p>
+      </div>
+    </div>
+
+    <!-- Steps Grid -->
+    <div class="steps-grid">
+      <!-- Step 1: Upload & Ingest -->
+      <a href="step1_upload.html" class="step-card" id="step1Card">
+        <div class="step-card-header">
+          <div class="step-card-number">1</div>
+          <h3 class="step-card-title">Upload & Ingest</h3>
+        </div>
+        <p class="step-card-description">
+          Upload GeoTIFF climate index files (PPET, WBGT) and persist metadata to MongoDB + Google Cloud Storage.
+        </p>
+        <div class="step-card-status">
+          <span id="step1Status">Not Started</span>
+        </div>
+      </a>
+
+      <!-- Step 2: View Tiles -->
+      <a href="step2_tiles.html" class="step-card" id="step2Card">
+        <div class="step-card-header">
+          <div class="step-card-number">2</div>
+          <h3 class="step-card-title">View Tiles</h3>
+        </div>
+        <p class="step-card-description">
+          Select climate indices by type and time range, visualise raster tiles on Cesium with customisable colourmaps.
+        </p>
+        <div class="step-card-status">
+          <span id="step2Status">Not Started</span>
+        </div>
+      </a>
+
+      <!-- Step 3: Draw & Query -->
+      <a href="step3_draw.html" class="step-card" id="step3Card">
+        <div class="step-card-header">
+          <div class="step-card-number">3</div>
+          <h3 class="step-card-title">Draw & Query</h3>
+        </div>
+        <p class="step-card-description">
+          Draw polygons to define regions of interest. Statistics are computed automatically as you draw.
+        </p>
+        <div class="step-card-status">
+          <span id="step3Status">Not Started</span>
+        </div>
+      </a>
+
+
+
+      <!-- Step 4: Save Selection -->
+      <a href="step4_save.html" class="step-card" id="step4Card">
+        <div class="step-card-header">
+          <div class="step-card-number">4</div>
+          <h3 class="step-card-title">Save Selection</h3>
+        </div>
+        <p class="step-card-description">
+          Persist polygon geometry and statistics to MongoDB with custom names, descriptions, and tags for future retrieval.
+        </p>
+        <div class="step-card-status">
+          <span id="step4Status">Not Started</span>
+        </div>
+      </a>
+
+      <!-- Step 5: Export CZML -->
+      <a href="step5_export.html" class="step-card" id="step5Card">
+        <div class="step-card-header">
+          <div class="step-card-number">5</div>
+          <h3 class="step-card-title">Export CZML</h3>
+        </div>
+        <p class="step-card-description">
+          Select from saved selections and export as CZML documents with customisable visualisations for Cesium.
+        </p>
+        <div class="step-card-status">
+          <span id="step5Status">Not Started</span>
+        </div>
+      </a>
+    </div>
+
+    <!-- API Reference -->
+    <div class="step-content" style="margin-top: 40px;">
+      <h3 style="margin-top: 0;">API Endpoints Used</h3>
+      <div style="display: grid; gap: 10px; font-size: 13px;">
+        <div class="endpoint-badge">
+          <span class="method post">POST</span>
+          <span>/api/climate-indices/ingest/store</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method">GET</span>
+          <span>/api/climate-indices/assets</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method">GET</span>
+          <span>/api/climate-indices/tiles/{asset_id}/{z}/{x}/{y}.png</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method post">POST</span>
+          <span>/api/climate-indices/query/polygon</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method post">POST</span>
+          <span>/api/climate-indices/selections/save</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method">GET</span>
+          <span>/api/climate-indices/selections/list</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method post">POST</span>
+          <span>/api/climate-indices/selections/{id}/export-czml</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; margin-top: 40px; padding: 20px; color: #6b7280; font-size: 13px;">
+      <p style="margin: 0;">
+        Heart of Borneo Climate Raster Tile Server | FastAPI + MongoDB + GCS + Cesium
+      </p>
+    </div>
+  </div>
+
+  <script src="../static/demo3-common.js"></script>
+  <script>
+    // Update progress on page load
+    function updateProgress() {
+      const progress = WorkflowState.getProgress();
+      document.getElementById('progressPercentage').textContent = progress;
+      document.getElementById('progressBar').style.width = progress + '%';
+      
+      // Update step cards (now only 5 steps)
+      for (let i = 1; i <= 5; i++) {
+        const card = document.getElementById(`step${i}Card`);
+        const status = document.getElementById(`step${i}Status`);
+        
+        if (WorkflowState.isStepCompleted(i)) {
+          card.classList.add('completed');
+          status.textContent = '✓ Completed';
+        } else {
+          card.classList.remove('completed');
+          status.textContent = 'Not Started';
+        }
+      }
+    }
+    
+    function startWorkflow() {
+      window.location.href = 'step1_upload.html';
+    }
+    
+    function skipToStep2() {
+      window.location.href = 'step2_tiles.html';
+    }
+    
+    function resetWorkflow() {
+      if (confirm('Are you sure you want to reset the entire workflow? This will clear all saved progress.')) {
+        WorkflowState.clearAll();
+        updateProgress();
+        UI.showSuccess('Workflow reset successfully!');
+      }
+    }
+    
+    // Initialize on load
+    updateProgress();
+  </script>
+</body>
+</html>

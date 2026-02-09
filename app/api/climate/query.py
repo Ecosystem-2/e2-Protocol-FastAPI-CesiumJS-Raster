@@ -34,7 +34,7 @@ def zonal_stats_from_cog(cog_path: str, polygon_geojson: Dict[str, Any]) -> Dict
     data[data == src.nodata] = np.nan
     vals = data[~np.isnan(data)]
     if vals.size == 0:
-        return {"count": 0, "min": None, "max": None, "mean": None, "std": None}
+        return {"count": 0, "min": None, "max": None, "mean": None, "std": None, "median": None}
 
     return {
         "count": int(vals.size),
@@ -42,6 +42,7 @@ def zonal_stats_from_cog(cog_path: str, polygon_geojson: Dict[str, Any]) -> Dict
         "max": float(np.max(vals)),
         "mean": float(np.mean(vals)),
         "std": float(np.std(vals)),
+        "median": float(np.median(vals)),
     }
 
 

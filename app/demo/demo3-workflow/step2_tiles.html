@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Step 2: View Tiles | Demo 3 Workflow</title>
+  <link rel="stylesheet" href="../static/demo3-styles.css">
+  <link rel="stylesheet" href="../static/cesium-viewer.css">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+</head>
+<body>
+  <div class="workflow-container">
+    <!-- Header -->
+    <div class="workflow-header">
+      <h1>Step 2: View Climate Tiles</h1>
+      <p>Select and visualise climate indices with customisable colourmaps</p>
+    </div>
+
+    <!-- Breadcrumb -->
+    <div class="workflow-breadcrumb">
+      <a href="index.html">Workflow Home</a>
+      <span class="separator">›</span>
+      <a href="step1_upload.html">Step 1: Upload</a>
+      <span class="separator">›</span>
+      <span class="current">Step 2: View Tiles</span>
+    </div>
+
+    <!-- Step Progress -->
+    <div class="step-progress">
+      <div class="step-item completed">
+        <div class="step-number">1</div>
+        <div class="step-label">Upload</div>
+      </div>
+      <div class="step-item current">
+        <div class="step-number">2</div>
+        <div class="step-label">Tiles</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <div class="step-label">Draw</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">4</div>
+        <div class="step-label">Query</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">5</div>
+        <div class="step-label">Save</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">6</div>
+        <div class="step-label">Export</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="step-content">
+      <h2 class="step-title">Visualise Raster Tiles</h2>
+      <p class="step-description">
+        Filter climate assets by index type and time range, then load them as PNG tiles on the Cesium map viewer.
+      </p>
+
+      <div class="endpoint-badge">
+        <span class="method">GET</span>
+        <span>/api/climate-indices/tiles/{asset_id}/{z}/{x}/{y}.png?colormap_name={colormap}&scale_min={min}&scale_max={max}</span>
+      </div>
+
+      <!-- Status Message -->
+      <div id="statusMessage" class="status-message"></div>
+
+      <!-- Controls -->
+      <div class="control-panel">
+        <div class="control-group">
+          <label for="indexFilter">Index Type:</label>
+          <select id="indexFilter" onchange="filterSlicesByIndex(this.value)">
+            <option value="all">All Indices</option>
+            <option value="ppet">PPET - Precipitation/PET Ratio</option>
+            <option value="humid-heat-stress">Humid Heat Stress (WBGT)</option>
+            <option value="temperature">Temperature</option>
+            <option value="precipitation">Precipitation</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="sliceSelect">Time Slice:</label>
+          <select id="sliceSelect" onchange="showSelectedSlice()">
+            <option value="">Loading assets...</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="colourmapSelect">Colourmap:</label>
+          <select id="colourmapSelect" onchange="updateColourmap()">
+            <option value="viridis">Viridis (Purple-Green-Yellow)</option>
+            <option value="plasma">Plasma (Purple-Orange)</option>
+            <option value="inferno">Inferno (Black-Purple-Yellow)</option>
+            <option value="blues">Blues</option>
+            <option value="rdylgn">RdYlGn (Red-Yellow-Green)</option>
+            <option value="rdylgn_r">RdYlGn Reversed (Green-Yellow-Red)</option>
+            <option value="rdylbu_r">RdYlBu Reversed (Red-Yellow-Blue)</option>
+            <option value="coolwarm">Cool-Warm (Blue-White-Red)</option>
+            <option value="spectral">Spectral (Rainbow)</option>
+          </select>
+        </div>
+
+        <div class="control-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div>
+            <label for="scaleMin">Scale Min:</label>
+            <input type="number" id="scaleMin" step="any" placeholder="Auto" onchange="updateColourmap()">
+          </div>
+          <div>
+            <label for="scaleMax">Scale Max:</label>
+            <input type="number" id="scaleMax" step="any" placeholder="Auto" onchange="updateColourmap()">
+          </div>
+        </div>
+
+        <button class="btn btn-primary" onclick="loadTilesForCurrentSlice()">
+          🗺️ Load Tiles on Map
+        </button>
+      </div>
+
+      <!-- Cesium Viewer -->
+      <div id="cesiumContainer">
+        <!-- Colorbar -->
+        <div id="colorbar" class="colorbar-container">
+          <div class="colorbar-title" id="colorbarTitle">Climate Index</div>
+          <div class="colorbar-gradient" id="colorbarGradient"></div>
+          <div class="colorbar-labels">
+            <span id="colorbarMin">0</span>
+            <span id="colorbarMax">100</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Asset Info -->
+      <div id="assetInfo" style="display: none; margin-top: 20px; padding: 15px; background: #f3f4f6; border-radius: 6px;">
+        <h4 style="margin: 0 0 10px 0; color: #374151;">Current Asset</h4>
+        <div style="font-size: 13px; color: #6b7280;">
+          <div><strong>Filename:</strong> <span id="infoFilename"></span></div>
+          <div><strong>Index Type:</strong> <span id="infoIndexType"></span></div>
+          <div><strong>Time Range:</strong> <span id="infoTimeRange"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="workflow-navigation">
+      <div class="nav-group">
+        <button class="btn btn-outline" onclick="UI.goToStep(1)">
+          ← Back to Upload
+        </button>
+        <button class="btn btn-secondary" onclick="UI.goToIndex()">
+          Overview
+        </button>
+      </div>
+      <div class="nav-group">
+        <button class="btn btn-success" id="nextBtn" onclick="proceedToStep3()">
+          Next: Draw Polygon →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../static/demo3-common.js"></script>
+  <script>
+    const INDEX_CONFIGS = {
+      'ppet': { colormap: 'blues', scale_min: 0, scale_max: 12 },
+      'humid-heat-stress': { colormap: 'rdylgn_r', scale_min: 0, scale_max: 5 },
+      'temperature': { colormap: 'rdylbu_r', scale_min: -10, scale_max: 40 },
+      'precipitation': { colormap: 'bupu', scale_min: 0, scale_max: 500 },
+      'default': { colormap: 'viridis', scale_min: 0, scale_max: 100 }
+    };
+
+    const SEGAMA_RECT = Cesium.Rectangle.fromDegrees(116.5, 4.0, 119.5, 6.5);
+
+    let viewer = null;
+    let allSlices = [];
+    let slices = [];
+    let currentSlice = null;
+    let currentLayer = null;
+
+    // Initialize
+    UI.updateStepProgress(2);
+    initializeCesium();
+    loadAssets();
+
+    function initializeCesium() {
+      Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
+      
+      viewer = new Cesium.Viewer('cesiumContainer', {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: true,
+        geocoder: false,
+        homeButton: true,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        terrainProvider: new Cesium.EllipsoidTerrainProvider()
+      });
+      
+      // Ensure base layer is set to OpenStreetMap
+      viewer.imageryLayers.removeAll();
+      viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider());
+
+      // Set camera to Heart of Borneo - Segama River
+      viewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(117.8, 5.2, 200000),
+        orientation: {
+          heading: 0.0,
+          pitch: Cesium.Math.toRadians(-45),
+          roll: 0.0
+        }
+      });
+    }
+
+    async function loadAssets() {
+      try {
+        UI.showStatus('Loading assets from database...');
+        const assets = await API.listAssets();
+        
+        if (!assets || assets.length === 0) {
+          UI.showStatus('No climate assets found. Please upload GeoTIFF files first.', true);
+          return;
+        }
+
+        allSlices = assets.map((asset, idx) => {
+          const timeRange = asset.time_range || {};
+          const indexType = asset.index_type || 'unknown';
+          const startYear = timeRange.start ? new Date(timeRange.start).getFullYear() : 'N/A';
+          const endYear = timeRange.end ? new Date(timeRange.end).getFullYear() : 'N/A';
+          
+          // Determine bounds from raster metadata
+          let rect;
+          if (asset.raster?.bounds) {
+            const b = asset.raster.bounds;
+            if (b.left !== undefined && b.bottom !== undefined && b.right !== undefined && b.top !== undefined) {
+              rect = Cesium.Rectangle.fromDegrees(b.left, b.bottom, b.right, b.top);
+            } else {
+              rect = SEGAMA_RECT;
+            }
+          } else {
+            rect = SEGAMA_RECT;
+          }
+          
+          let label = `${indexType.toUpperCase()} ${startYear}–${endYear}`;
+          if (asset.filename && asset.filename.includes('Historic')) {
+            label += ' (Historic)';
+          } else if (asset.filename && asset.filename.includes('SSP245')) {
+            label += ' (SSP2-4.5)';
+          }
+          
+          return {
+            id: asset.id,
+            label: label,
+            assetId: asset.id,
+            indexType: indexType,
+            filename: asset.filename,
+            timeRange: timeRange,
+            rect: rect
+          };
+        });
+
+        slices = [...allSlices];
+        
+        // Save all slices to WorkflowState for step3 to query all assets
+        WorkflowState.set('all_slices', slices);
+        
+        populateSliceSelect();
+        UI.showSuccess(`Loaded ${slices.length} asset(s)`);
+        
+        // Automatically load the first tile on map
+        if (slices.length > 0) {
+          setTimeout(() => {
+            currentSlice = slices[0];
+            
+            // Set default min/max values
+            const config = INDEX_CONFIGS[currentSlice.indexType] || INDEX_CONFIGS['default'];
+            document.getElementById('scaleMin').value = config.scale_min;
+            document.getElementById('scaleMax').value = config.scale_max;
+            
+            loadTilesForCurrentSlice();
+          }, 500);
+        }
+
+      } catch (error) {
+        UI.showStatus(`Failed to load assets: ${error.message}`, true);
+      }
+    }
+
+    function filterSlicesByIndex(indexType) {
+      if (indexType === 'all') {
+        slices = [...allSlices];
+      } else {
+        slices = allSlices.filter(s => s.indexType === indexType);
+      }
+      populateSliceSelect();
+      UI.showStatus(`Filtered to ${slices.length} ${indexType === 'all' ? 'total' : indexType.toUpperCase()} asset(s)`);
+    }
+
+    function populateSliceSelect() {
+      const select = document.getElementById('sliceSelect');
+      select.innerHTML = slices.length > 0 
+        ? slices.map(s => `<option value="${s.id}">${s.label}</option>`).join('')
+        : '<option value="">No assets available</option>';
+    }
+
+    function showSelectedSlice() {
+      const select = document.getElementById('sliceSelect');
+      const sliceId = select.value;
+      currentSlice = slices.find(s => s.id === sliceId);
+      
+      if (currentSlice) {
+        // Get colormap and scale values for storage
+        const colourmap = document.getElementById('colourmapSelect')?.value || 'viridis';
+        const scaleMin = parseFloat(document.getElementById('scaleMin')?.value) || 0;
+        const scaleMax = parseFloat(document.getElementById('scaleMax')?.value) || 1;
+        
+        // Store complete slice info including rect bounds for step3
+        const sliceData = {
+          assetId: currentSlice.assetId,
+          indexType: currentSlice.indexType,
+          label: currentSlice.label,
+          colourmap: colourmap,
+          scaleMin: scaleMin,
+          scaleMax: scaleMax,
+          rect: currentSlice.rect ? {
+            left: currentSlice.rect.west * (180 / Math.PI),
+            bottom: currentSlice.rect.south * (180 / Math.PI),
+            right: currentSlice.rect.east * (180 / Math.PI),
+            top: currentSlice.rect.north * (180 / Math.PI)
+          } : null
+        };
+        
+        WorkflowState.set('current_slice', sliceData);
+        updateAssetInfo();
+        
+        // Set default min/max values based on index type
+        const config = INDEX_CONFIGS[currentSlice.indexType] || INDEX_CONFIGS['default'];
+        document.getElementById('scaleMin').value = config.scale_min;
+        document.getElementById('scaleMax').value = config.scale_max;
+      }
+    }
+
+    function loadTilesForCurrentSlice() {
+      // Get current selection from dropdown if not already set
+      if (!currentSlice) {
+        showSelectedSlice();
+      }
+      
+      if (!currentSlice) {
+        UI.showStatus('Please select a time slice first', true);
+        return;
+      }
+
+      // Remove existing layer
+      if (currentLayer) {
+        viewer.imageryLayers.remove(currentLayer, false);
+      }
+
+      // Build tile URL with colourmap and custom or default scale
+      const colourmap = document.getElementById('colourmapSelect').value;
+      const config = INDEX_CONFIGS[currentSlice.indexType] || INDEX_CONFIGS['default'];
+      
+      // Use custom min/max if provided, otherwise use defaults from config
+      const scaleMinInput = document.getElementById('scaleMin').value;
+      const scaleMaxInput = document.getElementById('scaleMax').value;
+      const scaleMin = scaleMinInput !== '' ? parseFloat(scaleMinInput) : config.scale_min;
+      const scaleMax = scaleMaxInput !== '' ? parseFloat(scaleMaxInput) : config.scale_max;
+      
+      const tileUrl = `${API_BASE}/tiles/${currentSlice.assetId}/{z}/{x}/{y}.png?colormap_name=${colourmap}&scale_min=${scaleMin}&scale_max=${scaleMax}`;
+
+      // Add new layer with bounds from asset metadata
+      const rect = currentSlice.rect || SEGAMA_RECT;
+      
+      // Update WorkflowState with current colormap and scale settings
+      const sliceData = {
+        assetId: currentSlice.assetId,
+        indexType: currentSlice.indexType,
+        label: currentSlice.label,
+        colourmap: colourmap,
+        scaleMin: scaleMin,
+        scaleMax: scaleMax,
+        rect: currentSlice.rect ? {
+          left: currentSlice.rect.west * (180 / Math.PI),
+          bottom: currentSlice.rect.south * (180 / Math.PI),
+          right: currentSlice.rect.east * (180 / Math.PI),
+          top: currentSlice.rect.north * (180 / Math.PI)
+        } : null
+      };
+      WorkflowState.set('current_slice', sliceData);
+      
+      const provider = new Cesium.UrlTemplateImageryProvider({
+        url: tileUrl,
+        maximumLevel: 14,
+        rectangle: rect,
+        credit: 'Climate tiles'
+      });
+
+      currentLayer = viewer.imageryLayers.addImageryProvider(provider);
+      currentLayer.alpha = 0.85;
+      currentLayer.show = true;
+
+      // Fly to region
+      viewer.camera.flyTo({
+        destination: rect,
+        duration: 2.0
+      });
+
+      WorkflowState.completeStep(2);
+      updateAssetInfo();
+      updateColorbar();
+      UI.showSuccess(`✓ Loaded tiles: ${currentSlice.label}`);
+    }
+
+    function updateColorbar() {
+      if (!currentSlice) {
+        document.getElementById('colorbar').classList.remove('visible');
+        return;
+      }
+
+      const config = INDEX_CONFIGS[currentSlice.indexType] || INDEX_CONFIGS['default'];
+      const colourmap = document.getElementById('colourmapSelect').value;
+      
+      // Use custom min/max if provided, otherwise use defaults
+      const scaleMinInput = document.getElementById('scaleMin').value;
+      const scaleMaxInput = document.getElementById('scaleMax').value;
+      const scaleMin = scaleMinInput !== '' ? parseFloat(scaleMinInput) : config.scale_min;
+      const scaleMax = scaleMaxInput !== '' ? parseFloat(scaleMaxInput) : config.scale_max;
+      
+      // Update title
+      const indexLabel = currentSlice.indexType.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+      document.getElementById('colorbarTitle').textContent = `${indexLabel} (${colourmap})`;
+      
+      // Update min/max labels with actual values being used
+      document.getElementById('colorbarMin').textContent = scaleMin.toString();
+      document.getElementById('colorbarMax').textContent = scaleMax.toString();
+      
+      // Create gradient based on colormap
+      const gradient = getColormapGradient(colourmap);
+      document.getElementById('colorbarGradient').style.background = gradient;
+      
+      // Show colorbar
+      document.getElementById('colorbar').classList.add('visible');
+    }
+
+    function getColormapGradient(colourmap) {
+      // CSS gradients approximating matplotlib colormaps
+      const gradients = {
+        'viridis': 'linear-gradient(to right, #440154, #3b528b, #21918c, #5ec962, #fde725)',
+        'plasma': 'linear-gradient(to right, #0d0887, #6a00a8, #b12a90, #e16462, #fca636, #f0f921)',
+        'inferno': 'linear-gradient(to right, #000004, #420a68, #932667, #dd513a, #fca50a, #fcffa4)',
+        'blues': 'linear-gradient(to right, #f7fbff, #deebf7, #c6dbef, #9ecae1, #6baed6, #4292c6, #2171b5, #08519c, #08306b)',
+        'rdylgn': 'linear-gradient(to right, #a50026, #d73027, #f46d43, #fdae61, #fee08b, #ffffbf, #d9ef8b, #a6d96a, #66bd63, #1a9850, #006837)',
+        'rdylgn_r': 'linear-gradient(to right, #006837, #1a9850, #66bd63, #a6d96a, #d9ef8b, #ffffbf, #fee08b, #fdae61, #f46d43, #d73027, #a50026)',
+        'rdylbu_r': 'linear-gradient(to right, #a50026, #d73027, #f46d43, #fdae61, #fee090, #ffffbf, #e0f3f8, #abd9e9, #74add1, #4575b4, #313695)',
+        'coolwarm': 'linear-gradient(to right, #3b4cc0, #6788ee, #9abbff, #c9d7f0, #edd1c2, #f7a789, #e26952, #b40426)',
+        'spectral': 'linear-gradient(to right, #9e0142, #d53e4f, #f46d43, #fdae61, #fee08b, #ffffbf, #e6f598, #abdda4, #66c2a5, #3288bd, #5e4fa2)',
+        'bupu': 'linear-gradient(to right, #f7fcfd, #e0ecf4, #bfd3e6, #9ebcda, #8c96c6, #8c6bb1, #88419d, #810f7c, #4d004b)'
+      };
+      
+      return gradients[colourmap] || gradients['viridis'];
+    }
+
+    function updateColourmap() {
+      if (currentSlice && currentLayer) {
+        loadTilesForCurrentSlice();
+      }
+    }
+
+    function updateAssetInfo() {
+      if (currentSlice) {
+        document.getElementById('assetInfo').style.display = 'block';
+        document.getElementById('infoFilename').textContent = currentSlice.filename || 'N/A';
+        document.getElementById('infoIndexType').textContent = currentSlice.indexType.toUpperCase();
+        const start = currentSlice.timeRange.start ? new Date(currentSlice.timeRange.start).getFullYear() : 'N/A';
+        const end = currentSlice.timeRange.end ? new Date(currentSlice.timeRange.end).getFullYear() : 'N/A';
+        document.getElementById('infoTimeRange').textContent = `${start}–${end}`;
+      }
+    }
+
+    function proceedToStep3() {
+      if (!currentSlice) {
+        UI.showStatus('Please load tiles first before proceeding', true);
+        return;
+      }
+      UI.goToStep(3);
+    }
+
+    // Load previous selection if exists
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedSlice = WorkflowState.get('current_slice');
+      if (savedSlice && savedSlice.assetId) {
+        setTimeout(() => {
+          const select = document.getElementById('sliceSelect');
+          const option = Array.from(select.options).find(opt => opt.value === savedSlice.assetId);
+          if (option) {
+            select.value = savedSlice.assetId;
+            // Restore the current slice
+            currentSlice = slices.find(s => s.assetId === savedSlice.assetId);
+            if (currentSlice) {
+              // Restore colormap and scale settings
+              if (savedSlice.colourmap) {
+                document.getElementById('colourmapSelect').value = savedSlice.colourmap;
+              }
+              if (savedSlice.scaleMin !== undefined) {
+                document.getElementById('scaleMin').value = savedSlice.scaleMin;
+              }
+              if (savedSlice.scaleMax !== undefined) {
+                document.getElementById('scaleMax').value = savedSlice.scaleMax;
+              }
+              updateAssetInfo();
+              updateColorbar();
+            }
+          }
+        }, 1000); // Increased timeout to ensure slices are loaded
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Step 3: Draw Polygon | Demo 3 Workflow</title>
+  <link rel="stylesheet" href="../static/demo3-styles.css">
+  <link rel="stylesheet" href="../static/cesium-viewer.css">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+</head>
+<body>
+  <div class="workflow-container">
+    <div class="workflow-header">
+      <h1>Step 3: Draw Polygon Selection</h1>
+      <p>Interactively draw a polygon region on the map for analysis</p>
+    </div>
+
+    <div class="workflow-breadcrumb">
+      <a href="index.html">Workflow Home</a>
+      <span class="separator">›</span>
+      <a href="step1_upload.html">Step 1</a>
+      <span class="separator">›</span>
+      <a href="step2_tiles.html">Step 2</a>
+      <span class="separator">›</span>
+      <span class="current">Step 3: Draw</span>
+    </div>
+
+    <div class="step-progress">
+      <div class="step-item completed"><div class="step-number">1</div><div class="step-label">Upload</div></div>
+      <div class="step-item completed"><div class="step-number">2</div><div class="step-label">Tiles</div></div>
+      <div class="step-item current"><div class="step-number">3</div><div class="step-label">Draw</div></div>
+      <div class="step-item"><div class="step-number">4</div><div class="step-label">Save</div></div>
+      <div class="step-item"><div class="step-number">5</div><div class="step-label">Export</div></div>
+    </div>
+
+    <div class="step-content">
+      <h2 class="step-title">Draw Polygon Region</h2>
+      <p class="step-description">
+        Click on the map to draw vertices of your polygon. Right-click to complete the polygon. 
+        The selected region will be used for zonal statistics in the next step.
+      </p>
+
+      <div id="statusMessage" class="status-message"></div>
+
+      <div class="control-panel">
+        <button class="btn btn-primary" id="drawBtn" onclick="startDrawing()">
+          ✏️ Draw Polygon & Auto-Query
+        </button>
+        <button class="btn btn-secondary" onclick="loadPreviousSelection()" style="margin-left: 10px;">
+          📂 Load Previous Selection
+        </button>
+        <button class="btn btn-secondary" id="clearBtn" onclick="clearAllPolygons()" style="display: none;">
+          🗑️ Clear All Polygons
+        </button>
+        <button class="btn btn-secondary" id="exportBtn" onclick="exportPixelData()" style="display: none;">
+          📥 Export Pixel Data (CSV)
+        </button>
+        <div style="margin-top: 10px; padding: 10px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px; font-size: 13px; color: #78350f;">
+          <strong>Instructions:</strong> Left-click to add vertices, double-click to finish. Draw multiple polygons.
+        </div>
+      </div>
+      
+      <!-- API Code Examples -->
+      <div style="margin: 20px 0; padding: 15px; background: rgba(30, 41, 59, 0.6); border-left: 3px solid #3b82f6; border-radius: 6px;">
+        <details>
+          <summary style="cursor: pointer; font-weight: 600; color: #60a5fa; margin-bottom: 10px;">📋 Polygon Query API Examples</summary>
+          
+          <div style="margin-bottom: 15px;">
+            <div style="display: inline-block; background: rgba(59, 130, 246, 0.2); padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; color: #60a5fa; margin-bottom: 8px;">
+              <span style="color: #10b981;">POST</span> /api/climate-indices/query/polygons/stats
+            </div>
+            <div style="font-size: 11px; color: #94a3b8; margin-top: 5px;">Query zonal statistics for multiple polygons across one or more climate assets</div>
+          </div>
+
+          <div style="margin-top: 10px;">
+            <strong style="color: #94a3b8;">JavaScript (Fetch API):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
+const polygons = [
+  {
+    type: "Polygon",
+    coordinates: [[
+      [117.5, 4.5], [117.6, 4.5], [117.6, 4.6], [117.5, 4.6], [117.5, 4.5]
+    ]]
+  }
+];
+
+const formData = new FormData();
+formData.append('asset_ids', 'asset-id-1,asset-id-2');
+formData.append('polygons_geojson', JSON.stringify(polygons));
+
+const response = await fetch('/api/climate-indices/query/polygons/stats', {
+  method: 'POST',
+  body: formData
+});
+const stats = await response.json();</pre>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <strong style="color: #94a3b8;">Python (requests):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
+import requests
+import json
+
+polygons = [
+    {
+        "type": "Polygon",
+        "coordinates": [[
+            [117.5, 4.5], [117.6, 4.5],
+            [117.6, 4.6], [117.5, 4.6], [117.5, 4.5]
+        ]]
+    }
+]
+
+data = {
+    'asset_ids': 'asset-id-1,asset-id-2',
+    'polygons_geojson': json.dumps(polygons)
+}
+
+response = requests.post(
+    'http://localhost:8080/api/climate-indices/query/polygons/stats',
+    data=data
+)
+stats = response.json()
+
+# Response includes: count, min, max, mean, std, median for each polygon</pre>
+          </div>
+        </details>
+      </div>
+      
+      <!-- Previous Selections Modal -->
+      <div id="selectionsModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: #1e293b; padding: 24px; border-radius: 8px; max-width: 600px; max-height: 80vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h3 style="margin: 0; color: #e2e8f0;">Load Previous Selection</h3>
+            <button onclick="closeSelectionsModal()" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 24px;">×</button>
+          </div>
+          <div id="modalSelectionsList">Loading...</div>
+        </div>
+      </div>
+
+      <div id="cesiumContainer"></div>
+
+      <div class="results-panel" id="resultsPanel" style="display: none; margin-top: 20px; padding: 15px; background: rgba(15, 23, 42, 0.95); border: 1px solid rgba(148, 163, 184, 0.2); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+          <h4 style="margin: 0; color: #10b981;">📊 Query Results</h4>
+          <button onclick="document.getElementById('resultsPanel').style.display='none'" style="background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 20px;">×</button>
+        </div>
+        <pre id="resultsContent" style="margin: 0; white-space: pre-wrap; word-wrap: break-word; font-size: 12px; color: #e2e8f0; max-height: 400px; overflow-y: auto;"></pre>
+      </div>
+    </div>
+
+    <div class="workflow-navigation">
+      <div class="nav-group">
+        <button class="btn btn-outline" onclick="UI.goToStep(2)">← Back to Tiles</button>
+        <button class="btn btn-secondary" onclick="UI.goToIndex()">Overview</button>
+      </div>
+      <div class="nav-group">
+        <button class="btn btn-success" id="nextBtn" onclick="proceedToStep4()" disabled>Next: Save Selection →</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../static/demo3-common.js"></script>
+  <script>
+    let viewer = null;
+    let drawnPolygons = []; // Store multiple polygon entities
+    let allPolygonPositions = []; // Store all polygon positions for querying
+    let handler = null;
+
+    UI.updateStepProgress(3);
+    initializeCesium();
+    loadPreviousTiles();
+
+    function initializeCesium() {
+      Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
+      
+      viewer = new Cesium.Viewer('cesiumContainer', {
+        animation: false,
+        timeline: false,
+        baseLayerPicker: true,
+        geocoder: false,
+        homeButton: true,
+        sceneModePicker: false,
+        navigationHelpButton: false,
+        terrainProvider: new Cesium.EllipsoidTerrainProvider()
+      });
+
+      viewer.imageryLayers.addImageryProvider(new Cesium.OpenStreetMapImageryProvider());
+
+      viewer.camera.setView({
+        destination: Cesium.Cartesian3.fromDegrees(117.8, 5.2, 200000),
+        orientation: { heading: 0.0, pitch: Cesium.Math.toRadians(-45), roll: 0.0 }
+      });
+    }
+
+    function loadPreviousTiles() {
+      const currentSlice = WorkflowState.get('current_slice');
+      if (currentSlice) {
+        const { assetId, colourmap, scaleMin, scaleMax, rect } = currentSlice;
+        const params = `colormap_name=${colourmap || 'viridis'}&scale_min=${scaleMin || 0}&scale_max=${scaleMax || 1}`;
+        const tileUrl = `${API_BASE}/tiles/${assetId}/{z}/{x}/{y}.png?${params}`;
+        
+        // Use bounds from step2 or fallback to default
+        const bounds = rect || { left: 116.5, bottom: 4.0, right: 119.5, top: 6.5 };
+        const rectangle = Cesium.Rectangle.fromDegrees(bounds.left, bounds.bottom, bounds.right, bounds.top);
+        
+        const provider = new Cesium.UrlTemplateImageryProvider({
+          url: tileUrl,
+          maximumLevel: 14,
+          rectangle: rectangle
+        });
+        const layer = viewer.imageryLayers.addImageryProvider(provider);
+        layer.alpha = 0.85;
+        
+        // Fly to tile bounds
+        viewer.camera.flyTo({ destination: rectangle });
+      }
+    }
+
+    function startDrawing() {
+      if (handler) {
+        handler.destroy();
+      }
+
+      const positions = [];
+      document.getElementById('drawBtn').disabled = true;
+      document.getElementById('drawBtn').textContent = 'Drawing...';
+      UI.showStatus('Click to add vertices, double-click to finish polygon');
+
+      handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+
+      // Left click to add vertex
+      handler.setInputAction((click) => {
+        const cartesian = viewer.camera.pickEllipsoid(click.position, viewer.scene.globe.ellipsoid);
+        if (cartesian) {
+          positions.push(cartesian);
+
+          // Draw/update temporary polygon
+          if (positions.length > 0) {
+            // Remove temp polygon if exists
+            const tempPolygon = drawnPolygons[drawnPolygons.length - 1];
+            if (tempPolygon && tempPolygon.isTemporary) {
+              viewer.entities.remove(tempPolygon);
+              drawnPolygons.pop();
+            }
+
+            // Add updated temp polygon
+            const polygon = viewer.entities.add({
+              polygon: {
+                hierarchy: new Cesium.PolygonHierarchy(positions),
+                material: Cesium.Color.BLACK.withAlpha(0.3),
+                outline: true,
+                outlineColor: Cesium.Color.BLACK,
+                outlineWidth: 2
+              }
+            });
+            polygon.isTemporary = true;
+            drawnPolygons.push(polygon);
+          }
+        }
+      }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
+
+      // Double-click to finish polygon
+      handler.setInputAction(() => {
+        if (positions.length >= 3) {
+          handler.destroy();
+          handler = null;
+
+          // Mark last polygon as complete
+          const lastPolygon = drawnPolygons[drawnPolygons.length - 1];
+          if (lastPolygon) {
+            lastPolygon.isTemporary = false;
+          }
+
+          // Store positions for querying
+          allPolygonPositions.push(positions.slice());
+
+          // Save to workflow state
+          const coordinates = positions.map(pos => {
+            const cartographic = Cesium.Cartographic.fromCartesian(pos);
+            return [
+              Cesium.Math.toDegrees(cartographic.longitude),
+              Cesium.Math.toDegrees(cartographic.latitude)
+            ];
+          });
+          coordinates.push(coordinates[0]);
+
+          const allPolygonsGeoJSON = allPolygonPositions.map(posArray => {
+            const coords = posArray.map(pos => {
+              const cartographic = Cesium.Cartographic.fromCartesian(pos);
+              return [
+                Cesium.Math.toDegrees(cartographic.longitude),
+                Cesium.Math.toDegrees(cartographic.latitude)
+              ];
+            });
+            coords.push(coords[0]);
+            return { type: "Polygon", coordinates: [coords] };
+          });
+
+          WorkflowState.set('drawn_polygons', allPolygonsGeoJSON);
+          WorkflowState.completeStep(3);
+
+          // Show action buttons
+          document.getElementById('clearBtn').style.display = 'block';
+          document.getElementById('exportBtn').style.display = 'block';
+          document.getElementById('nextBtn').disabled = false;
+          document.getElementById('drawBtn').disabled = false;
+          document.getElementById('drawBtn').textContent = 'Draw Another Polygon';
+
+          UI.showSuccess(`✓ Polygon ${allPolygonPositions.length} created with ${positions.length} vertices`);
+
+          // Auto-query statistics
+          queryAllPolygons();
+        } else {
+          UI.showStatus('Need at least 3 vertices for polygon', true);
+        }
+      }, Cesium.ScreenSpaceEventType.LEFT_DOUBLE_CLICK);
+    }
+
+    function clearAllPolygons() {
+      // Remove all drawn polygons
+      drawnPolygons.forEach(polygon => {
+        viewer.entities.remove(polygon);
+      });
+      drawnPolygons = [];
+      allPolygonPositions = [];
+
+      if (handler) {
+        handler.destroy();
+        handler = null;
+      }
+
+      WorkflowState.remove('drawn_polygons');
+      document.getElementById('resultsPanel').style.display = 'none';
+      document.getElementById('clearBtn').style.display = 'none';
+      document.getElementById('exportBtn').style.display = 'none';
+      document.getElementById('nextBtn').disabled = true;
+      document.getElementById('drawBtn').disabled = false;
+      document.getElementById('drawBtn').textContent = '✏️ Draw Polygon & Auto-Query';
+      UI.showStatus('All polygons cleared');
+    }
+
+    function queryAllPolygons() {
+      if (allPolygonPositions.length === 0) {
+        UI.showStatus('No polygons drawn', true);
+        return;
+      }
+
+      // Convert all polygons to GeoJSON
+      const geojsonPolygons = allPolygonPositions.map(positions => {
+        const coordinates = positions.map(pos => {
+          const cartographic = Cesium.Cartographic.fromCartesian(pos);
+          return [
+            Cesium.Math.toDegrees(cartographic.longitude),
+            Cesium.Math.toDegrees(cartographic.latitude)
+          ];
+        });
+        coordinates.push(coordinates[0]);
+        return { type: "Polygon", coordinates: [coordinates] };
+      });
+
+      // Get ALL assets from workflow state (not just current one)
+      const allSlices = WorkflowState.get('all_slices') || [];
+      const currentSlice = WorkflowState.get('current_slice');
+      
+      // Fallback to current slice if no all_slices
+      const assetsToQuery = allSlices.length > 0 
+        ? allSlices.map(s => s.assetId)
+        : (currentSlice ? [currentSlice.assetId] : []);
+
+      if (assetsToQuery.length === 0) {
+        UI.showStatus('No assets selected', true);
+        return;
+      }
+
+      UI.showStatus(`Querying ${allPolygonPositions.length} polygon(s) across ${assetsToQuery.length} asset(s)...`);
+
+      // Query all assets in parallel
+      const queryPromises = assetsToQuery.map(assetId => 
+        API.queryPolygonsBatch(assetId, geojsonPolygons)
+          .then(data => ({ assetId, data }))
+          .catch(error => ({ assetId, error: error.message }))
+      );
+
+      Promise.all(queryPromises)
+        .then(results => {
+          displayMultiAssetResults(results, allSlices);
+          const totalPixels = results.reduce((sum, r) => {
+            if (r.data?.results?.[r.assetId]?.polygons) {
+              return sum + r.data.results[r.assetId].polygons.reduce((s, p) => s + (p.stats?.count || 0), 0);
+            }
+            return sum;
+          }, 0);
+          
+          // Store query results for step 4
+          WorkflowState.set('query_results', results);
+          
+          UI.showSuccess(`✓ Query complete: ${totalPixels.toLocaleString()} pixels analysed across ${assetsToQuery.length} asset(s)`);
+        })
+        .catch(error => {
+          UI.showStatus(`Query failed: ${error.message}`, true);
+          console.error('Query error:', error);
+        });
+    }
+
+    function displayMultiAssetResults(results, allSlices) {
+      const panel = document.getElementById('resultsPanel');
+      const content = document.getElementById('resultsContent');
+
+      if (!panel || !content) return;
+
+      const formatted = {
+        "Total Assets Queried": results.length,
+        "Total Polygons": allPolygonPositions.length,
+        "Assets": {}
+      };
+
+      // Process each asset's results
+      results.forEach(result => {
+        if (result.error) {
+          formatted["Assets"][result.assetId] = { "Error": result.error };
+          return;
+        }
+
+        const assetResult = result.data?.results?.[result.assetId];
+        if (!assetResult) {
+          formatted["Assets"][result.assetId] = { "Error": "No results returned" };
+          return;
+        }
+
+        // Find asset metadata from allSlices
+        const assetMeta = allSlices.find(s => s.assetId === result.assetId);
+        const assetLabel = assetMeta?.metadata?.index_type || result.assetId.substring(0, 8);
+
+        formatted["Assets"][assetLabel] = {
+          "Asset ID": result.assetId,
+          "Index Type": assetResult.index_type || "N/A",
+          "Units": assetResult.units || "N/A",
+          "Time Range": assetResult.metadata?.time_range || {},
+          "Polygons": {}
+        };
+
+        // Process each polygon for this asset
+        assetResult.polygons?.forEach((polygonData, idx) => {
+          const polygonLabel = `Polygon ${idx + 1}`;
+
+          if (polygonData.error) {
+            formatted["Assets"][assetLabel]["Polygons"][polygonLabel] = { "Error": polygonData.error };
+          } else {
+            const stats = polygonData.stats;
+            formatted["Assets"][assetLabel]["Polygons"][polygonLabel] = {
+              "Pixel Count": stats?.count || 0,
+              "Min": stats?.min?.toFixed(4) || "N/A",
+              "Max": stats?.max?.toFixed(4) || "N/A",
+              "Mean": stats?.mean?.toFixed(4) || "N/A",
+              "Std Dev": stats?.std?.toFixed(4) || "N/A",
+              "Median": stats?.median?.toFixed(4) || "N/A"
+            };
+          }
+        });
+      });
+
+      content.textContent = JSON.stringify(formatted, null, 2);
+      panel.style.display = 'block';
+    }
+
+    function displayResults(data) {
+      const panel = document.getElementById('resultsPanel');
+      const content = document.getElementById('resultsContent');
+
+      if (!panel || !content) return;
+
+      const currentSlice = WorkflowState.get('current_slice');
+      const assetResult = data.results?.[currentSlice.assetId];
+
+      if (!assetResult) {
+        content.textContent = 'No results returned';
+        panel.style.display = 'block';
+        return;
+      }
+
+      const formatted = {
+        "Asset ID": currentSlice.assetId,
+        "Index Type": assetResult.index_type || "N/A",
+        "Units": assetResult.units || "N/A",
+        "Time Range": assetResult.metadata?.time_range || {},
+        "Polygons": {}
+      };
+
+      // Process each polygon
+      assetResult.polygons?.forEach((polygonData, idx) => {
+        const polygonLabel = `Polygon ${idx + 1}`;
+
+        if (polygonData.error) {
+          formatted["Polygons"][polygonLabel] = { "Error": polygonData.error };
+        } else {
+          const stats = polygonData.stats;
+          formatted["Polygons"][polygonLabel] = {
+            "Pixel Count": stats?.count || 0,
+            "Min": stats?.min?.toFixed(4) || "N/A",
+            "Max": stats?.max?.toFixed(4) || "N/A",
+            "Mean": stats?.mean?.toFixed(4) || "N/A",
+            "Std Dev": stats?.std?.toFixed(4) || "N/A",
+            "Median": stats?.median?.toFixed(4) || "N/A"
+          };
+        }
+      });
+
+      content.textContent = JSON.stringify(formatted, null, 2);
+      panel.style.display = 'block';
+    }
+
+    function exportPixelData() {
+      if (!allPolygonPositions || allPolygonPositions.length === 0) {
+        UI.showStatus('Draw a polygon first!', true);
+        return;
+      }
+
+      const currentSlice = WorkflowState.get('current_slice');
+      if (!currentSlice || !currentSlice.assetId) {
+        UI.showStatus('No asset selected', true);
+        return;
+      }
+
+      // Convert all polygons to GeoJSON
+      const geojsonPolygons = allPolygonPositions.map(positions => {
+        const coordinates = positions.map(pos => {
+          const cartographic = Cesium.Cartographic.fromCartesian(pos);
+          return [
+            Cesium.Math.toDegrees(cartographic.longitude),
+            Cesium.Math.toDegrees(cartographic.latitude)
+          ];
+        });
+        coordinates.push(coordinates[0]);
+        return { type: "Polygon", coordinates: [coordinates] };
+      });
+
+      UI.showStatus(`Exporting pixel data for ${allPolygonPositions.length} polygon(s) as CSV...`);
+
+      API.exportPixelData(currentSlice.assetId, geojsonPolygons)
+        .then(csvData => {
+          // Download CSV file
+          const blob = new Blob([csvData], { type: 'text/csv' });
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `climate_pixels_${currentSlice.assetId}_${new Date().toISOString().split('T')[0]}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+
+          const lines = csvData.split('\n').length - 1;
+          UI.showSuccess(`✓ CSV exported: ${lines.toLocaleString()} pixels saved`);
+        })
+        .catch(error => {
+          UI.showStatus(`Export failed: ${error.message}`, true);
+          console.error('Export error:', error);
+        });
+    }
+
+    function proceedToStep4() {
+      if (allPolygonPositions.length === 0) {
+        UI.showStatus('Please draw at least one polygon first', true);
+        return;
+      }
+      UI.goToStep(4);
+    }
+
+    async function loadPreviousSelection() {
+      try {
+        UI.showStatus('Loading saved sites...');
+        const sites = await API.listSites();
+        
+        if (!sites || sites.length === 0) {
+          document.getElementById('modalSelectionsList').innerHTML = `
+            <p style="text-align: center; color: #94a3b8; padding: 20px;">
+              No saved sites found. Complete Step 4 to save a selection first.
+            </p>
+          `;
+        } else {
+          const html = sites.map(site => `
+            <div onclick="loadSite('${site.site_id}')" style="padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; margin-bottom: 10px; cursor: pointer; border: 1px solid rgba(148, 163, 184, 0.2); transition: all 0.2s;" 
+                 onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.borderColor='rgba(59, 130, 246, 0.5)'"
+                 onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.borderColor='rgba(148, 163, 184, 0.2)'">
+              <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">${site.title}</div>
+              <div style="font-size: 12px; color: #94a3b8;">
+                ${site.desc || 'No description'} | ${site.statistics_count} stat(s) | ${site.tags?.join(', ') || 'No tags'}
+              </div>
+              <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
+                Created: ${new Date(site.created).toLocaleString()}
+              </div>
+            </div>
+          `).join('');
+          document.getElementById('modalSelectionsList').innerHTML = html;
+        }
+        
+        document.getElementById('selectionsModal').style.display = 'flex';
+        UI.showSuccess(`Loaded ${sites.length} site(s)`);
+      } catch (error) {
+        UI.showStatus(`Failed to load sites: ${error.message}`, true);
+        console.error('Load error:', error);
+      }
+    }
+
+    async function loadSite(siteId) {
+      try {
+        UI.showStatus('Loading site geometry...');
+        
+        // Fetch site details to get the polygon geometry
+        const response = await fetch(`${API_BASE}/sites/${siteId}`);
+        if (!response.ok) {
+          throw new Error('Failed to load site details');
+        }
+        
+        const site = await response.json();
+        let polygons = site.location?.polygon;
+        
+        if (!polygons) {
+          throw new Error('Site has no polygon geometry');
+        }
+        
+        // Handle both single polygon and array of polygons
+        if (!Array.isArray(polygons)) {
+          polygons = [polygons];
+        }
+        
+        if (polygons.length === 0 || !polygons[0].coordinates) {
+          throw new Error('Site has no valid polygon geometry');
+        }
+        
+        // Clear existing polygons
+        clearAllPolygons();
+        
+        // Draw all loaded polygons
+        const loadedGeojsonPolygons = [];
+        const allLoadedPositions = [];
+        
+        for (const polygon of polygons) {
+          const coords = polygon.coordinates[0];
+          const positions = coords.slice(0, -1).map(coord => 
+            Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
+          );
+          
+          const polygonEntity = viewer.entities.add({
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              material: Cesium.Color.BLACK.withAlpha(0.3),
+              outline: true,
+              outlineColor: Cesium.Color.BLACK,
+              outlineWidth: 2
+            }
+          });
+          polygonEntity.isTemporary = false;
+          drawnPolygons.push(polygonEntity);
+          allPolygonPositions.push(positions);
+          loadedGeojsonPolygons.push(polygon);
+          allLoadedPositions.push(...positions); // Collect all positions for bounding
+        }
+        
+        // Save to workflow state
+        WorkflowState.set('drawn_polygons', loadedGeojsonPolygons);
+        WorkflowState.set('drawn_polygon', loadedGeojsonPolygons[0]); // Backward compatibility
+        
+        // Show action buttons
+        document.getElementById('clearBtn').style.display = 'block';
+        document.getElementById('exportBtn').style.display = 'block';
+        document.getElementById('nextBtn').disabled = false;
+        document.getElementById('drawBtn').textContent = 'Draw Another Polygon';
+        
+        // Fly to all polygons
+        if (allLoadedPositions.length > 0) {
+          const bounds = Cesium.Rectangle.fromCartesianArray(allLoadedPositions);
+          viewer.camera.flyTo({ destination: bounds });
+        }
+        
+        closeSelectionsModal();
+        UI.showSuccess(`Loaded site: ${site.title}`);
+        
+        // Auto-query
+        queryAllPolygons();
+        
+      } catch (error) {
+        UI.showStatus(`Failed to load site: ${error.message}`, true);
+        console.error('Load site error:', error);
+      }
+    }
+
+    function closeSelectionsModal() {
+      document.getElementById('selectionsModal').style.display = 'none';
+    }
+
+    // Load previous polygons if exist
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedPolygons = WorkflowState.get('drawn_polygons');
+      if (savedPolygons && savedPolygons.length > 0) {
+        savedPolygons.forEach((geojsonPolygon, idx) => {
+          const coords = geojsonPolygon.coordinates[0];
+          const positions = coords.slice(0, -1).map(coord => 
+            Cesium.Cartesian3.fromDegrees(coord[0], coord[1])
+          );
+
+          const polygon = viewer.entities.add({
+            polygon: {
+              hierarchy: new Cesium.PolygonHierarchy(positions),
+              material: Cesium.Color.BLACK.withAlpha(0.3),
+              outline: true,
+              outlineColor: Cesium.Color.BLACK,
+              outlineWidth: 2
+            }
+          });
+          polygon.isTemporary = false;
+          drawnPolygons.push(polygon);
+          allPolygonPositions.push(positions);
+        });
+
+        // Show action buttons
+        document.getElementById('clearBtn').style.display = 'block';
+        document.getElementById('exportBtn').style.display = 'block';
+        document.getElementById('nextBtn').disabled = false;
+        document.getElementById('drawBtn').textContent = 'Draw Another Polygon';
+
+        // Auto-query on page load
+        queryAllPolygons();
+      }
+    });
+  </script>
+</body>
+</html>

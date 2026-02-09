@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Step 5: Export CZML | Demo 3 Workflow</title>
+  <link rel="stylesheet" href="../static/demo3-styles.css">
+  <link rel="stylesheet" href="../static/cesium-viewer.css">
+  <link rel="stylesheet" href="../static/step5_export.css">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+</head>
+<body>
+  <div class="workflow-container">
+    <div class="workflow-header">
+      <h1>Step 5: Export & Visualise CZML</h1>
+      <p>Select a saved polygon selection and export as CZML document for Cesium visualisation</p>
+    </div>
+
+    <div class="workflow-breadcrumb">
+      <a href="index.html">Workflow Home</a>
+      <span class="separator">›</span>
+      <span>Steps 1-4</span>
+      <span class="separator">›</span>
+      <span class="current">Step 5: Export</span>
+    </div>
+
+    <div class="step-progress">
+      <div class="step-item completed"><div class="step-number">1</div><div class="step-label">Upload</div></div>
+      <div class="step-item completed"><div class="step-number">2</div><div class="step-label">Tiles</div></div>
+      <div class="step-item completed"><div class="step-number">3</div><div class="step-label">Draw</div></div>
+      <div class="step-item completed"><div class="step-number">4</div><div class="step-label">Save</div></div>
+      <div class="step-item current"><div class="step-number">5</div><div class="step-label">Export</div></div>
+    </div>
+
+    <div class="step-content">
+      <h2 class="step-title">Select Saved Selection & Export CZML</h2>
+      <p class="step-description">
+        Choose from your saved polygon selections and generate a CZML document with customisable visualisation options.
+      </p>
+
+      <div id="statusMessage" class="status-message"></div>
+
+      <!-- Saved Selections List -->
+      <div class="control-panel">
+        <h3 style="margin: 0 0 15px 0; font-size: 16px;">Saved Selections</h3>
+        <div id="selectionsList" style="margin-bottom: 20px;">
+          <p style="text-align: center; color: #94a3b8; padding: 20px;">Loading selections...</p>
+        </div>
+      </div>
+
+      <!-- Export Configuration -->
+      <div class="control-panel" id="exportPanel" style="display: none;">
+        <h3 style="margin: 0 0 15px 0; font-size: 16px;">Export Configuration</h3>
+        
+        <div style="padding: 12px; background: #f0f9ff; border-radius: 6px; margin-bottom: 15px; border-left: 3px solid #3b82f6;">
+          <div style="font-size: 13px; color: #1e40af;">
+            <div><strong>Selected:</strong> <span id="selectedName">-</span></div>
+            <div><strong>Selection ID:</strong> <span id="selectedId" style="font-family: monospace;">-</span></div>
+          </div>
+        </div>
+
+        <div class="endpoint-badge" style="margin-bottom: 15px;">
+          <span class="method post">POST</span>
+          <span>/api/climate-indices/sites/{site_id}/export-czml</span>
+        </div>
+
+        <!-- API Code Examples -->
+        <details style="margin-bottom: 15px; padding: 10px; background: rgba(30, 41, 59, 0.6); border-left: 3px solid #3b82f6; border-radius: 6px;">
+          <summary style="cursor: pointer; font-weight: 600; color: #60a5fa; font-size: 12px;">📋 API Request Example</summary>
+          
+          <div style="margin-top: 10px;">
+            <strong style="color: #94a3b8; font-size: 11px;">Parameters (Form Data):</strong>
+            <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px;">
+visualisation_type: "point" | "bar" | "billboard"  # Optional, default: point
+colourmap_name: "viridis"                         # Optional, default: viridis
+value_field: "mean" | "min" | "max" | "std"       # Optional, default: mean
+point_size: 10                                     # Optional, 1-100
+bar_height_multiplier: 10000.0                    # Optional
+show_labels: true                                  # Optional</pre>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <strong style="color: #94a3b8; font-size: 11px;">JavaScript:</strong>
+            <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px; color: #e2e8f0;">
+const siteId = 'dac9b4f8-117f-438e-9601-8a3ef1401a28';
+const formData = new FormData();
+formData.append('visualisation_type', 'point');
+formData.append('colourmap_name', 'viridis');
+formData.append('value_field', 'mean');
+
+const response = await fetch(
+  `/api/climate-indices/sites/${siteId}/export-czml`,
+  { 
+    method: 'POST',
+    body: formData
+  }
+);
+const czml = await response.json();</pre>
+          </div>
+
+          <div style="margin-top: 12px;">
+            <strong style="color: #94a3b8; font-size: 11px;">Python:</strong>
+            <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px; color: #e2e8f0;">
+import requests
+
+site_id = 'dac9b4f8-117f-438e-9601-8a3ef1401a28'
+data = {
+    'visualisation_type': 'point',
+    'colourmap_name': 'viridis',
+    'value_field': 'mean'
+}
+
+response = requests.post(
+    f'http://localhost:8080/api/climate-indices/sites/{site_id}/export-czml',
+    data=data
+)
+czml = response.json()</pre>
+          </div>
+        </details>
+
+        <div class="control-group">
+          <label for="visualisationType">Visualisation Type</label>
+          <select id="visualisationType">
+            <option value="point">Point (coloured dots)</option>
+            <option value="bar">Bar (3D cylinders)</option>
+            <option value="billboard">Billboard (icons with labels)</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="colourmapName">Colourmap</label>
+          <select id="colourmapName">
+            <option value="viridis">Viridis</option>
+            <option value="plasma">Plasma</option>
+            <option value="inferno">Inferno</option>
+            <option value="RdYlGn">RdYlGn (Red-Yellow-Green)</option>
+            <option value="coolwarm">Cool-Warm</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="valueField">Value Field for Colouring</label>
+          <select id="valueField">
+            <option value="mean">Mean</option>
+            <option value="min">Minimum</option>
+            <option value="max">Maximum</option>
+            <option value="count">Pixel Count</option>
+          </select>
+        </div>
+
+        <button class="btn btn-primary" onclick="exportCZML()">
+          📦 Export CZML
+        </button>
+        <button class="btn btn-success" onclick="loadCZMLInViewer()" id="loadBtn" disabled>
+          🗺️ Load in Cesium Viewer
+        </button>
+      </div>
+
+      <!-- Cesium Viewer -->
+      <div id="cesiumContainer" style="display: none; margin-top: 20px;"></div>
+
+      <!-- Export Success Message -->
+      <div id="exportSuccess" style="display: none; margin-top: 20px; padding: 20px; background: #d1fae5; border-radius: 6px; border-left: 4px solid #10b981;">
+        <h3 style="margin: 0 0 15px 0; color: #065f46;">✓ CZML Exported</h3>
+        <div style="font-size: 13px; color: #065f46;">
+          <div><strong>Document ID:</strong> <span id="czmlDocId"></span></div>
+          <div><strong>Packets:</strong> <span id="czmlPackets"></span></div>
+          <button class="btn btn-secondary" onclick="downloadCZML()" style="margin-top: 10px; padding: 8px 16px; font-size: 12px;">
+            ⬇️ Download CZML File
+          </button>
+        </div>
+      </div>
+
+      <div id="resultsPanel" class="results-panel">
+        <h4>CZML Document</h4>
+        <pre id="resultsContent"></pre>
+      </div>
+    </div>
+
+    <div class="workflow-navigation">
+      <div class="nav-group">
+        <button class="btn btn-outline" onclick="UI.goToStep(4)">← Back to Save</button>
+        <button class="btn btn-secondary" onclick="UI.goToIndex()">Overview</button>
+      </div>
+      <div class="nav-group">
+        <button class="btn btn-success" onclick="completeWorkflow()" style="background: #10b981;">
+          ✓ Complete Workflow
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../static/demo3-common.js"></script>
+  <script src="../static/step5_export.js"></script>
+</body>
+</html>

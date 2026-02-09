@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Step 4: Save Selection | Demo 3 Workflow</title>
+  <link rel="stylesheet" href="../static/demo3-styles.css">
+</head>
+<body>
+  <div class="workflow-container">
+    <div class="workflow-header">
+      <h1>Step 4: Save Polygon Selection</h1>
+      <p>Persist polygon geometry and statistics to MongoDB for future retrieval</p>
+    </div>
+
+    <div class="workflow-breadcrumb">
+      <a href="index.html">Workflow Home</a>
+      <span class="separator">›</span>
+      <span>Steps 1-3</span>
+      <span class="separator">›</span>
+      <span class="current">Step 4: Save</span>
+    </div>
+
+    <div class="step-progress">
+      <div class="step-item completed"><div class="step-number">1</div><div class="step-label">Upload</div></div>
+      <div class="step-item completed"><div class="step-number">2</div><div class="step-label">Tiles</div></div>
+      <div class="step-item completed"><div class="step-number">3</div><div class="step-label">Draw</div></div>
+      <div class="step-item current"><div class="step-number">4</div><div class="step-label">Save</div></div>
+      <div class="step-item"><div class="step-number">5</div><div class="step-label">Export</div></div>
+    </div>
+
+    <div class="step-content">
+      <h2 class="step-title">Save Selection to Site</h2>
+      <p class="step-description">
+        Store the polygon and its statistics in MongoDB. Saved selections can be retrieved by name 
+        and exported as CZML visualisations in Step 5.
+      </p>
+
+      <div class="endpoint-badge">
+        <span class="method post">POST</span>
+        <span>/api/climate-indices/selections/save</span>
+      </div>
+
+      <!-- API Code Examples -->
+      <div style="margin: 20px 0; padding: 15px; background: rgba(30, 41, 59, 0.6); border-left: 3px solid #3b82f6; border-radius: 6px;">
+        <details open>
+          <summary style="cursor: pointer; font-weight: 600; color: #60a5fa; margin-bottom: 10px;">📋 API Request Example</summary>
+          
+          <div style="margin-top: 10px;">
+            <strong style="color: #94a3b8;">Required Parameters (Form Data):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px;">
+title: "Site Name"                   # Required, 1-200 chars
+geometry: "{\"type\":...}"            # Required, GeoJSON string
+asset_ids: "id1,id2,id3"             # Required, comma-separated
+locale_id: "uuid-v4"                 # Required, parent locale UUID
+description: "Optional description"  # Optional
+tags: "tag1,tag2"                    # Optional, comma-separated
+category: "cat1,cat2"                # Optional, comma-separated
+user_id: "uuid"                      # Optional
+project_id: "uuid"                   # Optional</pre>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <strong style="color: #94a3b8;">JavaScript (Fetch API):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
+const formData = new FormData();
+formData.append('title', 'Segama Delta Heat Stress');
+formData.append('description', 'High risk area analysis');
+formData.append('tags', 'climate,heat,risk');
+formData.append('geometry', JSON.stringify(polygon));
+formData.append('asset_ids', 'asset-id-1,asset-id-2');
+formData.append('locale_id', 'd35051c9-9444-4367-ae59-e77b9c58f91e');
+
+const response = await fetch('/api/climate-indices/selections/save', {
+  method: 'POST',
+  body: formData
+});</pre>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <strong style="color: #94a3b8;">Python (requests):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
+import requests
+import json
+
+data = {
+    'title': 'Segama Delta Heat Stress',
+    'description': 'High risk area analysis',
+    'tags': 'climate,heat,risk',
+    'geometry': json.dumps(polygon),
+    'asset_ids': 'asset-id-1,asset-id-2',
+    'locale_id': 'd35051c9-9444-4367-ae59-e77b9c58f91e'
+}
+
+response = requests.post(
+    'http://localhost:8080/api/climate-indices/selections/save',
+    data=data
+)</pre>
+          </div>
+        </details>
+      </div>
+
+      <div id="statusMessage" class="status-message"></div>
+
+      <!-- Debug Info Panel -->
+      <div style="margin-bottom: 20px; padding: 15px; background: rgba(59, 130, 246, 0.1); border-left: 3px solid #3b82f6; border-radius: 6px; font-size: 13px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <strong style="color: #60a5fa; font-size: 14px;">📋 Workflow Data Status</strong>
+          <button onclick="checkWorkflowData()" style="padding: 4px 10px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px;">🔍 Refresh</button>
+        </div>
+        <div id="debugInfo" style="line-height: 2;">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.2);">
+            <div>
+              <span id="debugSliceIcon">-</span>
+              <strong style="color: #e2e8f0;">Step 2 - Climate Asset:</strong>
+              <span id="debugSliceInfo" style="color: #94a3b8; font-size: 12px; margin-left: 8px;">-</span>
+            </div>
+            <a id="debugSliceLink" href="step2_tiles.html" style="display: none; color: #60a5fa; text-decoration: none; font-size: 11px;">→ Go to Step 2</a>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(148, 163, 184, 0.2);">
+            <div>
+              <span id="debugPolygonIcon">-</span>
+              <strong style="color: #e2e8f0;">Step 3 - Drawn Polygon:</strong>
+              <span id="debugPolygonInfo" style="color: #94a3b8; font-size: 12px; margin-left: 8px;">-</span>
+            </div>
+            <a id="debugPolygonLink" href="step3_draw.html" style="display: none; color: #60a5fa; text-decoration: none; font-size: 11px;">→ Go to Step 3</a>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0;">
+            <div>
+              <span id="debugStatsIcon">-</span>
+              <strong style="color: #e2e8f0;">Step 3 - Query Statistics:</strong>
+              <span id="debugStatsInfo" style="color: #94a3b8; font-size: 12px; margin-left: 8px;">-</span>
+            </div>
+            <a id="debugStatsLink" href="step3_draw.html" style="display: none; color: #60a5fa; text-decoration: none; font-size: 11px;">→ Go to Step 3</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="control-panel">
+        <div class="control-group">
+          <label for="title">
+            Selection Name <span style="color: var(--workflow-danger);">*</span>
+          </label>
+          <input type="text" id="title" placeholder="e.g. Segama River Delta PPET 2041-2070" required>
+        </div>
+
+        <div class="control-group">
+          <label for="description">Description</label>
+          <textarea id="description" placeholder="Optional description of this polygon selection..."></textarea>
+        </div>
+
+        <div class="control-group">
+          <label for="tags">Tags (comma-separated)</label>
+          <input type="text" id="tags" placeholder="e.g. ppet, historic, segama">
+        </div>
+
+        <button class="btn btn-primary" onclick="saveSelection()">
+          💾 Save Selection
+        </button>
+      </div>
+
+      <div id="saveSuccess" style="display: none; margin-top: 20px; padding: 20px; background: #d1fae5; border-radius: 6px; border-left: 4px solid #10b981;">
+        <h3 style="margin: 0 0 15px 0; color: #065f46;">✓ Selection Saved</h3>
+        <div style="font-size: 13px; color: #065f46;">
+          <div><strong>Selection ID:</strong> <span id="savedId" style="font-family: monospace;"></span></div>
+          <div><strong>Name:</strong> <span id="savedName"></span></div>
+          <div><strong>Created:</strong> <span id="savedDate"></span></div>
+        </div>
+      </div>
+
+      <div id="resultsPanel" class="results-panel">
+        <h4>API Response</h4>
+        <pre id="resultsContent"></pre>
+      </div>
+    </div>
+
+    <div class="workflow-navigation">
+      <div class="nav-group">
+        <button class="btn btn-outline" onclick="UI.goToStep(3)">← Back to Draw</button>
+        <button class="btn btn-secondary" onclick="UI.goToIndex()">Overview</button>
+      </div>
+      <div class="nav-group">
+        <button class="btn btn-success" id="nextBtn" onclick="proceedToStep5()" disabled>Next: Export CZML →</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../static/demo3-common.js"></script>
+  <script>
+    let savedSelection = null;
+
+    UI.updateStepProgress(4);
+    checkWorkflowData(); // Check on page load
+
+    function checkWorkflowData() {
+      const currentSlice = WorkflowState.get('current_slice');
+      const allSlices = WorkflowState.get('all_slices') || [];
+      const drawnPolygon = WorkflowState.get('drawn_polygon');
+      const drawnPolygons = WorkflowState.get('drawn_polygons'); // Multi-polygon support
+      const queryResults = WorkflowState.get('query_results');
+      const currentStats = WorkflowState.get('current_stats');
+
+      // Check Step 2: Climate Asset - show ALL assets queried
+      if (allSlices && allSlices.length > 0) {
+        const assetCount = allSlices.length;
+        const indexTypes = [...new Set(allSlices.map(s => s.indexType))].join(', ');
+        document.getElementById('debugSliceIcon').textContent = '✅';
+        document.getElementById('debugSliceInfo').innerHTML = `${assetCount} assets loaded | Types: ${indexTypes}`;
+        document.getElementById('debugSliceInfo').style.color = '#10b981';
+        document.getElementById('debugSliceLink').style.display = 'none';
+      } else if (currentSlice && currentSlice.assetId) {
+        // Fallback to single asset
+        const metadata = currentSlice.metadata || {};
+        const indexType = metadata.index_type || 'N/A';
+        const timeRange = metadata.time_range ? `${metadata.time_range.start_year}-${metadata.time_range.end_year}` : 'N/A';
+        document.getElementById('debugSliceIcon').textContent = '✅';
+        document.getElementById('debugSliceInfo').innerHTML = `Asset: <code style="background: rgba(255,255,255,0.1); padding: 2px 6px; border-radius: 3px;">${currentSlice.assetId.slice(0, 8)}...</code> | ${indexType} | ${timeRange}`;
+        document.getElementById('debugSliceInfo').style.color = '#10b981';
+        document.getElementById('debugSliceLink').style.display = 'none';
+      } else {
+        document.getElementById('debugSliceIcon').textContent = '❌';
+        document.getElementById('debugSliceInfo').textContent = 'No climate asset selected';
+        document.getElementById('debugSliceInfo').style.color = '#f87171';
+        document.getElementById('debugSliceLink').style.display = 'inline';
+      }
+
+      // Check Step 3: Drawn Polygon
+      const polygon = drawnPolygons || drawnPolygon;
+      if (polygon) {
+        const count = Array.isArray(polygon) ? polygon.length : 1;
+        const vertices = Array.isArray(polygon) 
+          ? polygon[0]?.coordinates?.[0]?.length - 1 || 0
+          : polygon.coordinates?.[0]?.length - 1 || 0;
+        document.getElementById('debugPolygonIcon').textContent = '✅';
+        document.getElementById('debugPolygonInfo').innerHTML = `${count} polygon(s), ${vertices} vertices`;
+        document.getElementById('debugPolygonInfo').style.color = '#10b981';
+        document.getElementById('debugPolygonLink').style.display = 'none';
+      } else {
+        document.getElementById('debugPolygonIcon').textContent = '❌';
+        document.getElementById('debugPolygonInfo').textContent = 'No polygon drawn yet';
+        document.getElementById('debugPolygonInfo').style.color = '#f87171';
+        document.getElementById('debugPolygonLink').style.display = 'inline';
+      }
+
+      // Check Step 3: Query Statistics
+      if (queryResults && queryResults.length > 0) {
+        const totalAssets = queryResults.length;
+        const totalPolygons = queryResults[0]?.data?.results ? 
+          Object.values(queryResults[0].data.results)[0]?.polygons?.length || 0 : 0;
+        document.getElementById('debugStatsIcon').textContent = '✅';
+        document.getElementById('debugStatsInfo').innerHTML = `${totalAssets} asset(s), ${totalPolygons} polygon(s) queried`;
+        document.getElementById('debugStatsInfo').style.color = '#10b981';
+        document.getElementById('debugStatsLink').style.display = 'none';
+      } else if (currentStats && currentStats.stats) {
+        const stats = currentStats.stats;
+        const pixelCount = stats.count || 0;
+        const mean = stats.mean?.toFixed(2) || 'N/A';
+        document.getElementById('debugStatsIcon').textContent = '✅';
+        document.getElementById('debugStatsInfo').innerHTML = `${pixelCount.toLocaleString()} pixels | Mean: ${mean}`;
+        document.getElementById('debugStatsInfo').style.color = '#10b981';
+        document.getElementById('debugStatsLink').style.display = 'none';
+      } else {
+        document.getElementById('debugStatsIcon').textContent = '❌';
+        document.getElementById('debugStatsInfo').textContent = 'No statistics queried yet';
+        document.getElementById('debugStatsInfo').style.color = '#f87171';
+        document.getElementById('debugStatsLink').style.display = 'inline';
+      }
+
+      // Show detailed info in console
+      console.log('=== Workflow State Debug ===');
+      console.log('current_slice:', currentSlice);
+      console.log('drawn_polygon:', drawnPolygon);
+      console.log('drawn_polygons:', drawnPolygons);
+      console.log('current_stats:', currentStats);
+      console.log('All localStorage keys:', Object.keys(localStorage));
+    }
+
+    async function saveSelection() {
+      const title = document.getElementById('title').value.trim();
+      const description = document.getElementById('description').value.trim();
+      const tags = document.getElementById('tags').value.trim();
+
+      const currentSlice = WorkflowState.get('current_slice');
+      const allSlices = WorkflowState.get('all_slices') || [];
+      const drawnPolygon = WorkflowState.get('drawn_polygon');
+      const drawnPolygons = WorkflowState.get('drawn_polygons'); // Multi-polygon support
+      const queryResults = WorkflowState.get('query_results'); // Full query results
+      const currentStats = WorkflowState.get('current_stats');
+
+      if (!title) {
+        UI.showStatus('Please enter a selection title', true);
+        return;
+      }
+
+      // Support both single and multi-polygon workflows
+      const geometry = drawnPolygons || drawnPolygon;
+      
+      if (!geometry || !queryResults) {
+        UI.showStatus('Missing geometry or query results from step 3', true);
+        console.error('Missing:', { geometry: !!geometry, queryResults: !!queryResults });
+        return;
+      }
+      
+      // Get all asset IDs that were queried in step3
+      const allAssetIds = allSlices.length > 0 
+        ? allSlices.map(s => s.assetId)
+        : (currentSlice ? [currentSlice.assetId] : []);
+      
+      if (allAssetIds.length === 0) {
+        UI.showStatus('No assets found from step 2', true);
+        return;
+      }
+
+      try {
+        const polygonCount = Array.isArray(geometry) ? geometry.length : 1;
+        UI.showStatus(`Saving selection with ${allAssetIds.length} asset(s) and ${polygonCount} polygon(s) to database...`);
+
+        // Save ALL polygons (geometry can be single polygon or array of polygons)
+        const response = await API.saveSelection(
+          title,
+          description,
+          tags,
+          geometry, // Pass all polygons
+          queryResults, // Full query results with all assets
+          allAssetIds.join(',') // All asset IDs as comma-separated string
+        );
+
+        savedSelection = response;
+        WorkflowState.set('saved_selection', response);
+        WorkflowState.completeStep(4);
+
+        document.getElementById('savedId').textContent = response.siteID || response.site_id;
+        document.getElementById('savedName').textContent = response.title;
+        document.getElementById('savedDate').textContent = Utils.formatDate(response.creationDateTime || response.creation_date_time);
+        document.getElementById('saveSuccess').style.display = 'block';
+        document.getElementById('nextBtn').disabled = false;
+
+        UI.showSuccess('✓ Selection saved successfully!');
+        UI.showResults('Save Response', response);
+
+      } catch (error) {
+        UI.showStatus(`Save failed: ${error.message}`, true);
+        console.error('Save error:', error);
+      }
+    }
+
+    function proceedToStep5() {
+      if (!savedSelection) {
+        UI.showStatus('Please save the selection first', true);
+        return;
+      }
+      UI.goToStep(5);
+    }
+
+    // Load previous selection if exists
+    window.addEventListener('DOMContentLoaded', () => {
+      const saved = WorkflowState.get('saved_selection');
+      if (saved) {
+        savedSelection = saved;
+        document.getElementById('title').value = saved.title;
+        document.getElementById('description').value = saved.description || saved.desc || '';
+        document.getElementById('tags').value = saved.tags?.join(', ') || '';
+        document.getElementById('savedId').textContent = saved.siteID || saved.site_id;
+        document.getElementById('savedName').textContent = saved.title;
+        document.getElementById('savedDate').textContent = Utils.formatDate(saved.creationDateTime || saved.creation_date_time);
+        document.getElementById('saveSuccess').style.display = 'block';
+        document.getElementById('nextBtn').disabled = false;
+        UI.showSuccess('Previous selection loaded from session');
+      }
+    });
+  </script>
+</body>
+</html>

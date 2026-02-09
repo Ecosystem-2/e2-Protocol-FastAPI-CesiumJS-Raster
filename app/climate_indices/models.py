@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime
-from typing import Any, Dict, Optional, Tuple, Literal
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -109,7 +109,7 @@ class AssetRecord(BaseModel):
     filename: Optional[str] = None
     storage: AssetStorage
     raster: RasterSummary
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AssetPersistenceResult(BaseModel):
@@ -118,3 +118,173 @@ class AssetPersistenceResult(BaseModel):
     storage: AssetStorage
     raster: RasterSummary
     replaced: bool = Field(default=False, description="True if an existing asset was replaced")
+
+
+# ============================================================================
+# Polygon Selection Models
+# ============================================================================
+
+
+class PolygonGeometry(BaseModel):
+    """GeoJSON polygon geometry."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    type: Literal["Polygon", "MultiPolygon"] = "Polygon"
+    coordinates: List[Any] = Field(..., description="GeoJSON coordinate arrays")
+
+
+class SelectionStatistics(BaseModel):
+    """Zonal statistics for a single asset-polygon pair."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    asset_id: str
+    index_type: str = Field(..., description="Climate index type (ppet, wbgt, etc.)")
+    units: Optional[str] = Field(default=None)
+
+    # Statistical measures
+    count: int = Field(..., description="Number of valid pixels")
+    min: Optional[float] = None
+    max: Optional[float] = None
+    mean: Optional[float] = None
+    median: Optional[float] = None
+    std: Optional[float] = None
+
+    # Asset metadata snapshot
+    asset_filename: Optional[str] = None
+    time_range: Optional[TimeRange] = None
+
+
+class PolygonSelectionRecord(BaseModel):
+    """Persisted polygon selection with multi-asset statistics."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
+
+    id: Optional[str] = Field(default=None, alias="_id")
+
+    # User metadata
+    name: str = Field(..., min_length=1, max_length=200, description="Unique selection name")
+    description: Optional[str] = Field(default=None, max_length=2000)
+    tags: List[str] = Field(default_factory=list, description="User-defined tags for categorisation")
+
+    # Geometry - supports single polygon or array of polygons
+    polygon: Union[PolygonGeometry, List[PolygonGeometry]] = Field(
+        ..., 
+        description="GeoJSON polygon geometry (single or array)"
+    )
+    centroid: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Computed centroid {lon, lat} for quick visualisation"
+    )
+
+    # Results
+    statistics: List[SelectionStatistics] = Field(
+        default_factory=list,
+        description="Zonal stats for each queried asset"
+    )
+
+    # Audit trail
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_by: Optional[str] = Field(default=None, description="Future: user ID or session")
+
+
+class CZMLExportOptions(BaseModel):
+    """Configuration for CZML export rendering."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    visualisation_type: Literal["point", "bar", "billboard"] = Field(
+        default="point",
+        description="Cesium entity type"
+    )
+
+    colourmap_name: str = Field(
+        default="viridis",
+        description="Matplotlib colourmap name (used with commons/colours.py)"
+    )
+
+    scale_min: Optional[float] = Field(
+        default=None,
+        description="Minimum value for colour scale (auto-computed if None)"
+    )
+
+    scale_max: Optional[float] = Field(
+        default=None,
+        description="Maximum value for colour scale (auto-computed if None)"
+    )
+
+    value_field: Literal["mean", "min", "max", "median", "std"] = Field(
+        default="mean",
+        description="Which statistic to visualise"
+    )
+
+    point_size: int = Field(default=10, ge=1, le=100, description="Point/billboard pixel size")
+
+    bar_height_multiplier: float = Field(
+        default=10000.0,
+        gt=0,
+        description="Multiplier for bar chart heights (metres)"
+    )
+
+    show_labels: bool = Field(default=True, description="Display value labels on entities")
+
+
+# ============================================================================
+# LocaleData and SiteData Models for MongoDB storage
+# ============================================================================
+
+
+class SiteLocation(BaseModel):
+    """Site location with geometry and statistics."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    coordinates: List[float] = Field(..., description="[lon, lat, height]")
+    polygon: Optional[Union[PolygonGeometry, List[PolygonGeometry]]] = Field(
+        default=None, 
+        description="Single polygon, MultiPolygon, or array of polygons"
+    )
+    centroid: Optional[Dict[str, float]] = Field(default=None, description="{lon, lat}")
+    statistics: Optional[List[SelectionStatistics]] = Field(default=None, description="Zonal statistics")
+
+
+class SiteData(BaseModel):
+    """Individual site data record matching temp.json schema."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
+
+    site_id: str = Field(..., alias="siteID", description="Unique UUID for site")
+    locale_id: str = Field(..., alias="localeID", description="Parent locale UUID")
+    user_id: Optional[str] = Field(None, alias="userID", description="Optional user UUID")
+    project_id: Optional[str] = Field(None, alias="projectID", description="Optional project UUID")
+    title: str = Field(..., description="Site name")
+    desc: Optional[str] = Field(None, description="Site description")
+    creation_date_time: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        alias="creationDateTime",
+        description="ISO8601 datetime"
+    )
+    location: SiteLocation = Field(..., description="Site location with geometry and statistics")
+    media_id: Optional[List[str]] = Field(default_factory=list, alias="mediaID", description="Optional media UUIDs")
+    category: Optional[List[str]] = Field(default_factory=list, description="Optional categories")
+    tags: Optional[List[str]] = Field(default_factory=list, description="Optional tags")
+
+
+class LocaleData(BaseModel):
+    """Locale data aggregating multiple sites."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
+
+    id: Optional[str] = Field(default=None, alias="_id", description="MongoDB ObjectId")
+    locale_id: str = Field(..., alias="localeID", description="Unique UUID for locale")
+    site_id: List[str] = Field(default_factory=list, alias="siteID", description="List of site UUIDs")
+    project_id: Optional[str] = Field(None, alias="projectID", description="Optional project UUID")
+    title: str = Field(..., description="Locale title")
+    description: Optional[str] = Field(None, description="Locale description")
+    creation_date: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        alias="creationDate",
+        description="ISO8601 datetime"
+    )

@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Step 1: Upload & Ingest | Demo 3 Workflow</title>
+  <link rel="stylesheet" href="../static/demo3-styles.css">
+  <link rel="stylesheet" href="../static/step1_upload.css">
+</head>
+<body>
+  <div class="workflow-container">
+    <!-- Header -->
+    <div class="workflow-header">
+      <h1>Step 1: Upload & Ingest Climate Data</h1>
+      <p>Upload GeoTIFF files and persist metadata to MongoDB + Google Cloud Storage</p>
+    </div>
+
+    <!-- Breadcrumb -->
+    <div class="workflow-breadcrumb">
+      <a href="index.html">Workflow Home</a>
+      <span class="separator">›</span>
+      <span class="current">Step 1: Upload</span>
+    </div>
+
+    <!-- Step Progress -->
+    <div class="step-progress">
+      <div class="step-item current">
+        <div class="step-number">1</div>
+        <div class="step-label">Upload</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">2</div>
+        <div class="step-label">Tiles</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">3</div>
+        <div class="step-label">Draw</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">4</div>
+        <div class="step-label">Query</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">5</div>
+        <div class="step-label">Save</div>
+      </div>
+      <div class="step-item">
+        <div class="step-number">6</div>
+        <div class="step-label">Export</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="step-content">
+      <h2 class="step-title">Upload GeoTIFF Asset</h2>
+      <p class="step-description">
+        Select a GeoTIFF file containing climate index data (PPET or WBGT). The file will be validated, 
+        converted to EPSG:4326, and stored in Google Cloud Storage with metadata persisted to MongoDB.
+      </p>
+
+      <div class="endpoint-badge">
+        <span class="method post">POST</span>
+        <span>/api/climate-indices/ingest/store</span>
+      </div>
+
+      <!-- API Code Examples -->
+      <div style="margin: 20px 0; padding: 15px; background: rgba(30, 41, 59, 0.6); border-left: 3px solid #3b82f6; border-radius: 6px;">
+        <details>
+          <summary style="cursor: pointer; font-weight: 600; color: #60a5fa; margin-bottom: 10px;">📋 API Request Example</summary>
+          
+          <div style="margin-top: 10px;">
+            <strong style="color: #94a3b8;">Required Parameters (Form Data):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px;">
+file: File                           # Required, .tif/.tiff binary
+index_type: "ppet"                   # Required, climate index type
+time_start: "2041-01-01T00:00"       # Required, ISO datetime
+time_end: "2070-12-31T23:59"         # Required, ISO datetime
+region: "Segama River"               # Optional
+scenario: "ssp245"                   # Optional (e.g. SSP2-4.5)
+model: "ensemble"                    # Optional, climate model
+notes: "Historic baseline data"      # Optional</pre>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <strong style="color: #94a3b8;">JavaScript (Fetch API):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
+const formData = new FormData();
+formData.append('file', fileInput.files[0]);
+formData.append('index_type', 'ppet');
+formData.append('time_start', '2041-01-01T00:00');
+formData.append('time_end', '2070-12-31T23:59');
+formData.append('region', 'Segama River');
+formData.append('scenario', 'ssp245');
+formData.append('model', 'ensemble');
+formData.append('notes', 'Historic baseline data');
+
+const response = await fetch('/api/climate-indices/ingest/store', {
+  method: 'POST',
+  body: formData
+});
+const data = await response.json();</pre>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <strong style="color: #94a3b8;">Python (requests):</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
+import requests
+
+with open('climate_data.tif', 'rb') as f:
+    files = {'file': f}
+    data = {
+        'index_type': 'ppet',
+        'time_start': '2041-01-01T00:00',
+        'time_end': '2070-12-31T23:59',
+        'region': 'Segama River',
+        'scenario': 'ssp245',
+        'model': 'ensemble',
+        'notes': 'Historic baseline data'
+    }
+    
+    response = requests.post(
+        'http://localhost:8080/api/climate-indices/ingest/store',
+        files=files,
+        data=data
+    )
+    result = response.json()</pre>
+          </div>
+
+          <div style="margin-top: 15px;">
+            <strong style="color: #94a3b8;">cURL:</strong>
+            <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
+curl -X POST http://localhost:8080/api/climate-indices/ingest/store \
+  -F "file=@climate_data.tif" \
+  -F "index_type=ppet" \
+  -F "time_start=2041-01-01T00:00" \
+  -F "time_end=2070-12-31T23:59" \
+  -F "region=Segama River" \
+  -F "scenario=ssp245" \
+  -F "model=ensemble" \
+  -F "notes=Historic baseline data"</pre>
+          </div>
+        </details>
+      </div>
+
+      <!-- Status Message -->
+      <div id="statusMessage" class="status-message"></div>
+
+      <!-- Upload Form -->
+      <div class="control-panel">
+        <div class="control-group">
+          <label>
+            GeoTIFF File <span style="color: var(--workflow-danger);">*</span>
+          </label>
+          <div class="file-input-wrapper">
+            <input type="file" id="fileInput" accept=".tif,.tiff" required />
+            <label for="fileInput" class="file-input-label" id="fileLabel">
+              <span class="file-icon">📁</span>
+              <span class="file-text">Click to select .tif file</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <label for="indexType">
+            Index Type <span style="color: var(--workflow-danger);">*</span>
+          </label>
+          <select id="indexType" required>
+            <option value="">Select index type...</option>
+            <option value="humid-heat-stress">Humid Heat Stress (WBGT)</option>
+            <option value="ppet">P-PET Ratio</option>
+            <option value="temperature">Temperature</option>
+            <option value="precipitation">Precipitation</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <label for="timeStart">
+            Time Start <span style="color: var(--workflow-danger);">*</span>
+          </label>
+          <input type="datetime-local" id="timeStart" required />
+          <span class="hint-text">Start date of the time range covered by this dataset</span>
+        </div>
+
+        <div class="control-group">
+          <label for="timeEnd">
+            Time End <span style="color: var(--workflow-danger);">*</span>
+          </label>
+          <input type="datetime-local" id="timeEnd" required />
+          <span class="hint-text">End date of the time range covered by this dataset</span>
+        </div>
+
+        <div class="control-group">
+          <label for="units">
+            Units
+          </label>
+          <input type="text" id="units" placeholder="e.g., °C, mm, ratio" />
+          <span class="hint-text">Optional: measurement units for the index values</span>
+        </div>
+
+        <button type="button" class="btn btn-primary" id="uploadBtn" onclick="handleUpload()">
+          📤 Upload & Store
+        </button>
+      </div>
+
+      <!-- Results Panel -->
+      <div id="resultsPanel" class="results-panel">
+        <h4>API Response</h4>
+        <pre id="resultsContent"></pre>
+      </div>
+
+      <!-- Upload Summary (shown after successful upload) -->
+      <div id="uploadSummary" style="display: none; margin-top: 20px;">
+        <h3 style="color: var(--workflow-success); margin: 0 0 15px 0;">✓ Upload Successful</h3>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Asset ID</div>
+            <div class="stat-value" id="assetIdValue" style="font-size: 14px; word-break: break-all;"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Filename</div>
+            <div class="stat-value" id="filenameValue" style="font-size: 14px; word-break: break-all;"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Index Type</div>
+            <div class="stat-value" id="indexTypeValue" style="font-size: 14px;"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">CRS</div>
+            <div class="stat-value" id="crsValue" style="font-size: 14px;"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Dimensions</div>
+            <div class="stat-value" id="dimensionsValue" style="font-size: 14px;"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Time Range</div>
+            <div class="stat-value" id="timeRangeValue" style="font-size: 13px;"></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Replaced</div>
+            <div class="stat-value" id="replacedValue" style="font-size: 14px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <div class="workflow-navigation">
+      <div class="nav-group">
+        <button class="btn btn-outline" onclick="UI.goToIndex()">
+          ← Back to Overview
+        </button>
+      </div>
+      <div class="nav-group">
+        <button class="btn btn-success" id="nextBtn" onclick="proceedToStep2()" disabled>
+          Next: View Tiles →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../static/demo3-common.js"></script>
+  <script src="../static/step1_upload.js"></script>
+</body>
+</html>

@@ -20,4 +20,5 @@ dependencies = [
     "czml3>=3.0.0",
     "shapely>=2.1.2",
     "rio-tiler>=8.0.1",
+    "pydantic>=2.12.4",
 ]

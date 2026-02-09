@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from bson import ObjectId  # type: ignore
@@ -57,7 +57,7 @@ class AssetRepository:
             asset_id = str(existing["_id"])
             doc["_id"] = existing["_id"]  # Preserve original _id
             doc["created_at"] = existing.get("created_at")  # Preserve creation timestamp
-            doc["updated_at"] = datetime.utcnow()  # Update modification timestamp
+            doc["updated_at"] = datetime.now(timezone.utc)  # Update modification timestamp
             
             self.collection.replace_one({"_id": existing["_id"]}, doc)
             logger.info("Replaced existing asset %s (filename: %s)", asset_id, asset.filename)

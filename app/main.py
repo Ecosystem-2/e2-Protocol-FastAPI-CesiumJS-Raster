@@ -30,7 +30,16 @@ def create_app() -> FastAPI:
 
     @app.get("/")
     def root():
-        return {"service": "hob-fastapi", "routers": ["geotif_converter", "demo"]}
+        return {
+            "service": "hob-fastapi",
+            "routers": ["geotif_converter", "climate_indices", "demo"],
+            "docs": "/docs",
+            "demo_pages": [
+                "/demo/demo1_ingest_tiles.html",
+                "/demo/demo2_climate_tiles_viewer.html",
+                "/demo/demo3-workflow/"
+            ]
+        }
 
     return app
 
