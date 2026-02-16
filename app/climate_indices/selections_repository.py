@@ -28,9 +28,9 @@ class SelectionRepository:
 
     def _ensure_indexes(self) -> None:
         """Create indexes for efficient queries."""
-        # Unique index on name (case-insensitive)
+        # Unique index on title (case-insensitive)
         self.collection.create_index(
-            [("name", 1)],
+            [("title", 1)],
             unique=True,
             collation={"locale": "en", "strength": 2}
         )
@@ -60,9 +60,9 @@ class SelectionRepository:
         doc = record.model_dump(by_alias=True, exclude={"id"})
         doc["updated_at"] = datetime.now(timezone.utc)
 
-        # Find existing selection by name (case-insensitive)
+        # Find existing selection by title (case-insensitive)
         existing = self.collection.find_one(
-            {"name": record.name},
+            {"title": record.title},
             collation={"locale": "en", "strength": 2}
         )
 
@@ -73,7 +73,7 @@ class SelectionRepository:
             doc["created_at"] = existing.get("created_at", datetime.now(timezone.utc))  # Preserve creation timestamp
 
             self.collection.replace_one({"_id": existing["_id"]}, doc)
-            logger.info("Replaced existing selection %s (name: %s)", selection_id, record.name)
+            logger.info("Replaced existing selection %s (title: %s)", selection_id, record.title)
             return selection_id, True
         else:
             # Insert new document
@@ -81,7 +81,7 @@ class SelectionRepository:
                 doc["created_at"] = datetime.now(timezone.utc)
             result = self.collection.insert_one(doc)
             selection_id = str(result.inserted_id)
-            logger.info("Inserted new selection %s (name: %s)", selection_id, record.name)
+            logger.info("Inserted new selection %s (title: %s)", selection_id, record.title)
             return selection_id, False
 
     def get_selection(self, selection_id: str) -> Optional[PolygonSelectionRecord]:
@@ -102,9 +102,9 @@ class SelectionRepository:
         return PolygonSelectionRecord.model_validate(doc)
 
     def get_selection_by_name(self, name: str) -> Optional[PolygonSelectionRecord]:
-        """Fetch selection by case-insensitive name."""
+        """Fetch selection by case-insensitive title."""
         doc = self.collection.find_one(
-            {"name": name},
+            {"title": name},
             collation={"locale": "en", "strength": 2}
         )
         if not doc:

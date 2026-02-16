@@ -1,0 +1,260 @@
+"""CZML export endpoints for polygon selections."""
+
+from __future__ import annotations
+
+import json
+from typing import Optional, List
+
+from fastapi import APIRouter, Form, HTTPException, Query, status
+from fastapi.responses import Response
+from pydantic import BaseModel
+
+from app.climate_indices.models import CZMLExportOptions, CZMLRecord
+from app.climate_indices.selections_repository import SelectionRepository
+from app.climate_indices.czml_repository import CZMLRepository
+from app.climate_indices.czml_generate import CZMLExportService
+from app.commons.colours import list_available_colourmaps, get_colourmap_categories
+from app.core.logging import get_logger
+
+router = APIRouter()
+logger = get_logger(__name__)
+
+
+# %% ============================================================================
+# Response Models
+# ============================================================================
+
+
+class CZMLExportResponse(BaseModel):
+    """Response model for CZML export."""
+    czml_id: str
+    selection_id: str
+    index_type: str
+    visualisation_type: str
+    packet_count: int
+    replaced: bool
+    czml_document: List[dict]
+
+
+class ColourmapListResponse(BaseModel):
+    """Response model for colourmap listing."""
+    colourmaps: List[str]
+    count: int
+
+
+class ColourmapCategoriesResponse(BaseModel):
+    """Response model for categorised colourmaps."""
+    categories: dict
+
+
+# %% ============================================================================
+# Colourmap Endpoints
+# ============================================================================
+
+
+@router.get(
+    "/colourmaps",
+    response_model=ColourmapListResponse,
+    summary="List available colourmaps",
+    description="Get all Matplotlib colourmaps available for CZML visualisation."
+)
+async def list_colourmaps(
+    category: Optional[str] = Query(
+        None,
+        description="Filter by category: perceptually_uniform, sequential, diverging, etc."
+    )
+) -> ColourmapListResponse:
+    """List all available Matplotlib colourmaps."""
+    try:
+        colourmaps = list_available_colourmaps(category)
+        return ColourmapListResponse(colourmaps=colourmaps, count=len(colourmaps))
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc)
+        ) from exc
+
+
+@router.get(
+    "/colourmaps/categories",
+    response_model=ColourmapCategoriesResponse,
+    summary="Get colourmap categories",
+    description="Get colourmaps organised by category."
+)
+async def get_colourmaps_by_category() -> ColourmapCategoriesResponse:
+    """Get colourmaps organised by category."""
+    categories = get_colourmap_categories()
+    return ColourmapCategoriesResponse(categories=categories)
+
+
+# %% ============================================================================
+# CZML Export Endpoints
+# ============================================================================
+
+
+@router.post(
+    "/selections/{selection_id}/export-czml",
+    response_model=CZMLExportResponse,
+    summary="Export selection as CZML",
+    description="Generate CZML visualisation and save to database."
+)
+async def export_selection_czml(
+    selection_id: str,
+    index_type: str = Form(..., description="Climate index type (ppet, wbgt, etc.)"),
+    visualisation_type: str = Form("polygon", description="bar or polygon"),
+    colourmap_name: str = Form("viridis", description="Matplotlib colourmap name"),
+    scale_min: Optional[float] = Form(None),
+    scale_max: Optional[float] = Form(None),
+    value_field: str = Form("mean", description="mean, min, max, median, or std"),
+    bar_height_multiplier: float = Form(10000.0, gt=0),
+    polygon_height_multiplier: float = Form(1000.0, gt=0),
+    polygon_fill_opacity: float = Form(0.7, ge=0.0, le=1.0),
+    polygon_outline: bool = Form(True),
+    show_labels: bool = Form(True),
+    interpolation_mode: str = Form("step", description="step or interpolation"),
+    save_to_db: bool = Form(True, description="Save CZML to database")
+) -> CZMLExportResponse:
+    """
+    Export selection as CZML for Cesium visualisation.
+
+    Uses `commons/colours.py` for colourmap rendering.
+    Saves generated CZML to MongoDB czml_documents collection.
+    
+    The index_type parameter filters to export only one climate index
+    (e.g., ppet or wbgt) to avoid overlapping polygons.
+    """
+    # Fetch selection
+    selection_repo = SelectionRepository()
+    selection = selection_repo.get_selection(selection_id)
+
+    if not selection:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Selection not found: {selection_id}"
+        )
+
+    # Build export options
+    try:
+        options = CZMLExportOptions(
+            visualisation_type=visualisation_type,  # type: ignore
+            colourmap_name=colourmap_name,
+            scale_min=scale_min,
+            scale_max=scale_max,
+            value_field=value_field,  # type: ignore
+            bar_height_multiplier=bar_height_multiplier,
+            polygon_height_multiplier=polygon_height_multiplier,
+            polygon_fill_opacity=polygon_fill_opacity,
+            polygon_outline=polygon_outline,
+            show_labels=show_labels,
+            interpolation_mode=interpolation_mode  # type: ignore
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid export options: {exc}"
+        ) from exc
+
+    # Generate CZML
+    service = CZMLExportService()
+    try:
+        czml_json = service.export(selection, options, index_type=index_type)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc)
+        ) from exc
+    czml_document = json.loads(czml_json)
+
+    # Save to database if requested
+    czml_id = ""
+    replaced = False
+    
+    if save_to_db:
+        czml_record = CZMLRecord(
+            selection_id=selection_id,
+            index_type=index_type,
+            title=f"{selection.title}_{index_type}_{visualisation_type}",
+            description=f"CZML export of {selection.title} ({index_type}) as {visualisation_type}",
+            export_options=options,
+            czml_document=czml_document,
+            packet_count=len(czml_document)
+        )
+        
+        czml_repo = CZMLRepository()
+        czml_id, replaced = czml_repo.save_czml(czml_record)
+        
+        logger.info(
+            "CZML exported: id=%s, selection=%s, index=%s, type=%s, packets=%d, replaced=%s",
+            czml_id, selection_id, index_type, visualisation_type, len(czml_document), replaced
+        )
+
+    return CZMLExportResponse(
+        czml_id=czml_id,
+        selection_id=selection_id,
+        index_type=index_type,
+        visualisation_type=visualisation_type,
+        packet_count=len(czml_document),
+        replaced=replaced,
+        czml_document=czml_document
+    )
+
+
+@router.get(
+    "/czml/{czml_id}",
+    summary="Get saved CZML document",
+    description="Retrieve a previously exported CZML document by ID."
+)
+async def get_czml_document(czml_id: str) -> dict:
+    """Fetch a saved CZML document by its ID."""
+    czml_repo = CZMLRepository()
+    record = czml_repo.get_czml(czml_id)
+    
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CZML document not found: {czml_id}"
+        )
+    
+    return record.model_dump(by_alias=True)
+
+
+@router.get(
+    "/selections/{selection_id}/czml",
+    summary="List CZML documents for selection",
+    description="Get all CZML documents generated for a selection."
+)
+async def list_czml_for_selection(
+    selection_id: str,
+    index_type: Optional[str] = Query(
+        None,
+        description="Filter by climate index type: ppet, wbgt, etc."
+    ),
+    visualisation_type: Optional[str] = Query(
+        None,
+        description="Filter by visualisation type: bar, polygon"
+    )
+) -> List[dict]:
+    """List all CZML documents for a selection."""
+    czml_repo = CZMLRepository()
+    records = czml_repo.get_czml_by_selection(selection_id, index_type, visualisation_type)
+    
+    return [record.model_dump(by_alias=True) for record in records]
+
+
+@router.delete(
+    "/czml/{czml_id}",
+    summary="Delete CZML document",
+    description="Delete a saved CZML document."
+)
+async def delete_czml_document(czml_id: str) -> dict:
+    """Delete a saved CZML document."""
+    czml_repo = CZMLRepository()
+    deleted = czml_repo.delete_czml(czml_id)
+    
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CZML document not found: {czml_id}"
+        )
+    
+    return {"deleted": True, "czml_id": czml_id}

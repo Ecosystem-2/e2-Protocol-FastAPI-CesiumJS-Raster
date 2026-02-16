@@ -156,38 +156,45 @@ class SelectionStatistics(BaseModel):
     time_range: Optional[TimeRange] = None
 
 
+class PolygonWithStatistics(BaseModel):
+    """Single polygon with its computed statistics and centroid."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    geometry: PolygonGeometry = Field(..., description="GeoJSON polygon geometry")
+    centroid: Dict[str, float] = Field(..., description="Computed centroid {lon, lat}")
+    statistics: List[SelectionStatistics] = Field(
+        default_factory=list,
+        description="Zonal statistics for this polygon across all queried assets"
+    )
+
+
 class PolygonSelectionRecord(BaseModel):
-    """Persisted polygon selection with multi-asset statistics."""
+    """Persisted polygon selection with multi-polygon statistics."""
 
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
     id: Optional[str] = Field(default=None, alias="_id")
 
+    # Site identifiers
+    locale_id: Optional[str] = Field(default=None, description="Locale UUID for grouping selections")
+    site_id: Optional[str] = Field(default=None, description="Site UUID for this selection")
+
     # User metadata
-    name: str = Field(..., min_length=1, max_length=200, description="Unique selection name")
+    title: str = Field(..., min_length=1, max_length=200, description="Unique selection title")
     description: Optional[str] = Field(default=None, max_length=2000)
     tags: List[str] = Field(default_factory=list, description="User-defined tags for categorisation")
 
-    # Geometry - supports single polygon or array of polygons
-    polygon: Union[PolygonGeometry, List[PolygonGeometry]] = Field(
-        ..., 
-        description="GeoJSON polygon geometry (single or array)"
-    )
-    centroid: Optional[Dict[str, float]] = Field(
-        default=None,
-        description="Computed centroid {lon, lat} for quick visualisation"
-    )
-
-    # Results
-    statistics: List[SelectionStatistics] = Field(
+    # Polygons with bundled geometry, centroid, and statistics
+    polygons: List[PolygonWithStatistics] = Field(
         default_factory=list,
-        description="Zonal stats for each queried asset"
+        description="List of polygons, each with geometry, centroid, and statistics"
     )
 
     # Audit trail
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = Field(default=None, description="Future: user ID or session")
+    created_by: Optional[str] = Field(default=None, description="User ID or session")
 
 
 class CZMLExportOptions(BaseModel):
@@ -195,9 +202,9 @@ class CZMLExportOptions(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    visualisation_type: Literal["point", "bar", "billboard"] = Field(
-        default="point",
-        description="Cesium entity type"
+    visualisation_type: Literal["bar", "polygon"] = Field(
+        default="polygon",
+        description="Cesium entity type: bar (3D cylinders) or polygon (extruded shapes)"
     )
 
     colourmap_name: str = Field(
@@ -220,15 +227,77 @@ class CZMLExportOptions(BaseModel):
         description="Which statistic to visualise"
     )
 
-    point_size: int = Field(default=10, ge=1, le=100, description="Point/billboard pixel size")
-
     bar_height_multiplier: float = Field(
         default=10000.0,
         gt=0,
         description="Multiplier for bar chart heights (metres)"
     )
 
+    polygon_height_multiplier: float = Field(
+        default=1000.0,
+        gt=0,
+        description="Multiplier for polygon extrusion heights (metres)"
+    )
+
+    polygon_fill_opacity: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description="Fill opacity for extruded polygons (0-1)"
+    )
+
+    polygon_outline: bool = Field(
+        default=True,
+        description="Show polygon outline"
+    )
+
     show_labels: bool = Field(default=True, description="Display value labels on entities")
+
+    interpolation_mode: Literal["step", "interpolation"] = Field(
+        default="step",
+        description=(
+            "Temporal animation mode: 'step' shows discrete values per period, "
+            "'interpolation' smoothly transitions between period start values"
+        )
+    )
+
+
+class CZMLRecord(BaseModel):
+    """Persisted CZML document with selection reference."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
+
+    id: Optional[str] = Field(default=None, alias="_id")
+    
+    selection_id: str = Field(
+        ...,
+        description="Reference to polygon_selections collection"
+    )
+    
+    index_type: str = Field(
+        ...,
+        description="Climate index type (e.g., ppet, wbgt)"
+    )
+    
+    title: str = Field(..., description="CZML document name")
+    description: Optional[str] = Field(default=None)
+    
+    # Export configuration used to generate this CZML
+    export_options: CZMLExportOptions = Field(
+        ...,
+        description="Options used for CZML generation"
+    )
+    
+    # The CZML document itself (list of packets as JSON string or dict)
+    czml_document: List[Dict[str, Any]] = Field(
+        ...,
+        description="CZML packet array"
+    )
+    
+    # Metadata
+    packet_count: int = Field(default=0, description="Number of CZML packets")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 # ============================================================================

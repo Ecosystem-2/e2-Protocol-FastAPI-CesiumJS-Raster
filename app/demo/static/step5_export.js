@@ -6,39 +6,108 @@ let selectedSelection = null;
 
 UI.updateStepProgress(5);
 loadSelections();
+loadColourmaps();
+
+/**
+ * Load available colourmaps from API and populate dropdown.
+ * Groups colourmaps by category with optgroups.
+ */
+async function loadColourmaps() {
+  const colourmapSelect = document.getElementById('colourmapName');
+  
+  try {
+    // Fetch colourmaps organised by category
+    const response = await fetch(`${API_BASE}/colourmaps/categories`);
+    
+    if (!response.ok) {
+      console.warn('Failed to load colourmaps, using defaults');
+      return; // Keep the hardcoded fallback options
+    }
+    
+    const data = await response.json();
+    const categories = data.categories;
+    
+    // Build grouped options HTML
+    let html = '';
+    
+    // Define preferred order and display names
+    const categoryOrder = [
+      ['perceptually_uniform', 'Perceptually Uniform'],
+      ['sequential', 'Sequential'],
+      ['diverging', 'Diverging'],
+      ['cyclic', 'Cyclic'],
+      ['qualitative', 'Qualitative'],
+      ['miscellaneous', 'Miscellaneous']
+    ];
+    
+    for (const [key, displayName] of categoryOrder) {
+      if (categories[key] && categories[key].length > 0) {
+        html += `<optgroup label="${displayName}">`;
+        
+        for (const cmap of categories[key]) {
+          // Mark viridis as selected (default)
+          const selected = cmap === 'viridis' ? ' selected' : '';
+          html += `<option value="${cmap}"${selected}>${cmap}</option>`;
+        }
+        
+        html += '</optgroup>';
+      }
+    }
+    
+    colourmapSelect.innerHTML = html;
+    console.log(`Loaded ${Object.values(categories).flat().length} colourmaps`);
+    
+  } catch (error) {
+    console.warn('Error loading colourmaps:', error);
+    // Keep the hardcoded fallback options
+  }
+}
+
+// Listen for visualisation type change to show/hide polygon options
+document.getElementById('visualisationType').addEventListener('change', function() {
+  const polygonOptionsGroup = document.getElementById('polygonOptionsGroup');
+  if (this.value === 'polygon') {
+    polygonOptionsGroup.style.display = 'block';
+  } else {
+    polygonOptionsGroup.style.display = 'none';
+  }
+});
+
+// Show polygon options by default (polygon is now the default type)
+document.getElementById('polygonOptionsGroup').style.display = 'block';
 
 async function loadSelections() {
   try {
-    UI.showStatus('Loading saved sites...');
-    const sites = await API.listSites();
+    UI.showStatus('Loading saved selections...');
+    const selections = await API.listSelections();
     
-    if (!sites || sites.length === 0) {
+    if (!selections || selections.length === 0) {
       document.getElementById('selectionsList').innerHTML = `
         <p style="text-align: center; color: #94a3b8; padding: 20px;">
-          No saved sites found. Please complete Step 4 to save a selection first.
+          No saved selections found. Please complete Step 4 to save a selection first.
         </p>
       `;
-      UI.showStatus('No sites available', true);
+      UI.showStatus('No selections available', true);
       return;
     }
 
-    // Display sites as clickable cards
-    const html = sites.map(site => {
-      const statsCount = site.location?.statistics?.length || 0;
+    // Display selections as clickable cards
+    const html = selections.map(sel => {
+      const statsCount = sel.statistics_count || 0;
+      const createdDate = new Date(sel.created_at).toLocaleDateString();
       return `
-      <div class="selection-card" onclick="selectSelection('${site.site_id}')" data-id="${site.site_id}">
+      <div class="selection-card" onclick="selectSelection('${sel.id}')" data-id="${sel.id}">
         <div style="display: flex; justify-content: space-between; align-items: start;">
           <div style="flex: 1;">
-            <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #e2e8f0;">${site.title}</h4>
+            <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #e2e8f0;">${sel.title}</h4>
             <p style="margin: 0 0 8px 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
-              ${site.desc || 'No description'}
+              ${sel.description || 'No description'}
             </p>
             <div style="font-size: 11px; color: #64748b; font-family: monospace;">
-              <div>Site ID: ${site.site_id}</div>
-              <div>Created: ${new Date(site.creation_date_time).toLocaleDateString()}</div>
+              <div>Selection ID: ${sel.id}</div>
+              <div>Created: ${createdDate}</div>
               <div>Statistics: ${statsCount} index(es)</div>
-              ${site.tags && site.tags.length > 0 ? `<div>Tags: ${site.tags.join(', ')}</div>` : ''}
-              ${site.category && site.category.length > 0 ? `<div>Category: ${site.category.join(', ')}</div>` : ''}
+              ${sel.tags && sel.tags.length > 0 ? `<div>Tags: ${sel.tags.join(', ')}</div>` : ''}
             </div>
           </div>
           <div style="min-width: 80px; text-align: right;">
@@ -50,46 +119,90 @@ async function loadSelections() {
     }).join('');
 
     document.getElementById('selectionsList').innerHTML = html;
-    UI.showSuccess(`Loaded ${sites.length} site(s)`);
+    UI.showSuccess(`Loaded ${selections.length} selection(s)`);
 
-    // Store sites for reference
-    window.allSelections = sites;
+    // Store selections for reference
+    window.allSelections = selections;
 
     // Auto-select if coming from step 4
     const savedFromStep4 = WorkflowState.get('saved_selection');
-    if (savedFromStep4 && savedFromStep4.siteID) {
-      selectSelection(savedFromStep4.siteID);
+    if (savedFromStep4 && (savedFromStep4._id || savedFromStep4.id)) {
+      selectSelection(savedFromStep4._id || savedFromStep4.id);
     }
 
   } catch (error) {
     document.getElementById('selectionsList').innerHTML = `
       <p style="text-align: center; color: #f87171; padding: 20px;">
-        Failed to load sites: ${error.message}
+        Failed to load selections: ${error.message}
       </p>
     `;
-    UI.showStatus(`Failed to load sites: ${error.message}`, true);
+    UI.showStatus(`Failed to load selections: ${error.message}`, true);
     console.error('Load error:', error);
   }
 }
 
-function selectSelection(siteId) {
-  const site = window.allSelections.find(s => s.site_id === siteId);
-  if (!site) return;
+async function selectSelection(selectionId) {
+  // Fetch full selection details (list endpoint returns summary only)
+  try {
+    UI.showStatus('Loading selection details...');
+    const fullSelection = await API.getSelection(selectionId);
+    
+    selectedSelection = fullSelection;
+    
+    // Highlight selected card
+    document.querySelectorAll('.selection-card').forEach(card => {
+      card.classList.remove('selected');
+    });
+    document.querySelector(`[data-id="${selectionId}"]`).classList.add('selected');
 
-  selectedSelection = site;
+    // Show export panel
+    document.getElementById('exportPanel').style.display = 'block';
+    document.getElementById('selectedName').textContent = fullSelection.title;
+    document.getElementById('selectedId').textContent = fullSelection.id || fullSelection._id;
 
-  // Highlight selected card
-  document.querySelectorAll('.selection-card').forEach(card => {
-    card.classList.remove('selected');
-  });
-  document.querySelector(`[data-id="${siteId}"]`).classList.add('selected');
+    // Populate index types from selection polygons
+    populateIndexTypes(fullSelection);
 
-  // Show export panel
-  document.getElementById('exportPanel').style.display = 'block';
-  document.getElementById('selectedName').textContent = site.title;
-  document.getElementById('selectedId').textContent = site.site_id;
+    UI.showSuccess(`Selected: ${fullSelection.title}`);
+  } catch (error) {
+    UI.showStatus(`Failed to load selection: ${error.message}`, true);
+    console.error('Select error:', error);
+  }
+}
 
-  UI.showSuccess(`Selected: ${site.title}`);
+/**
+ * Extract unique index types from selection's polygon statistics
+ * and populate the indexType dropdown.
+ */
+function populateIndexTypes(selection) {
+  const indexTypeSelect = document.getElementById('indexType');
+  
+  // Extract unique index types from all polygons' statistics
+  const indexTypes = new Set();
+  if (selection.polygons && Array.isArray(selection.polygons)) {
+    for (const polygon of selection.polygons) {
+      if (polygon.statistics && Array.isArray(polygon.statistics)) {
+        for (const stat of polygon.statistics) {
+          if (stat.index_type) {
+            indexTypes.add(stat.index_type);
+          }
+        }
+      }
+    }
+  }
+
+  // Build options HTML
+  if (indexTypes.size === 0) {
+    indexTypeSelect.innerHTML = '<option value="">-- No index types found --</option>';
+    return;
+  }
+
+  const sortedTypes = Array.from(indexTypes).sort();
+  indexTypeSelect.innerHTML = sortedTypes.map(type => 
+    `<option value="${type}">${type.toUpperCase()}</option>`
+  ).join('');
+  
+  console.log(`Populated ${indexTypes.size} index type(s):`, sortedTypes);
 }
 
 async function exportCZML() {
@@ -98,31 +211,63 @@ async function exportCZML() {
     return;
   }
 
+  const indexType = document.getElementById('indexType').value;
+  if (!indexType) {
+    UI.showStatus('Please select a climate index type', true);
+    return;
+  }
+
   const visualisationType = document.getElementById('visualisationType').value;
   const colourmapName = document.getElementById('colourmapName').value;
   const valueField = document.getElementById('valueField').value;
+  const interpolationMode = document.getElementById('interpolationMode').value;
+  
+  // Build export options
+  const exportOptions = {
+    index_type: indexType,
+    visualisation_type: visualisationType,
+    colourmap_name: colourmapName,
+    value_field: valueField,
+    interpolation_mode: interpolationMode,
+    save_to_db: true
+  };
+  
+  // Add polygon-specific options if polygon type selected
+  if (visualisationType === 'polygon') {
+    const heightMultiplier = document.getElementById('polygonHeightMultiplier');
+    const fillOpacity = document.getElementById('polygonFillOpacity');
+    if (heightMultiplier) {
+      exportOptions.polygon_height_multiplier = parseFloat(heightMultiplier.value) || 1000;
+    }
+    if (fillOpacity) {
+      exportOptions.polygon_fill_opacity = parseFloat(fillOpacity.value) || 0.7;
+    }
+  }
 
   try {
-    UI.showStatus('Exporting CZML document...');
+    UI.showStatus(`Exporting CZML for ${indexType.toUpperCase()} (${interpolationMode})...`);
 
-    const response = await API.exportSiteCZML(selectedSelection.site_id, visualisationType, colourmapName, valueField);
+    const selectionId = selectedSelection.id || selectedSelection._id;
+    const response = await API.exportCZMLWithOptions(selectionId, exportOptions);
 
-    // Response is the CZML array directly, not wrapped
-    czmlData = Array.isArray(response) ? response : response.czml;
+    // New response format includes czml_id and czml_document
+    czmlData = response.czml_document || response;
     
     if (!czmlData || !Array.isArray(czmlData)) {
       throw new Error('Invalid CZML response format');
     }
     
     WorkflowState.set('czml_data', czmlData);
+    WorkflowState.set('czml_id', response.czml_id);
     WorkflowState.completeStep(5);
 
-    document.getElementById('czmlDocId').textContent = czmlData[0]?.id || 'Unknown';
-    document.getElementById('czmlPackets').textContent = czmlData.length;
+    document.getElementById('czmlDocId').textContent = response.czml_id || czmlData[0]?.id || 'Unknown';
+    document.getElementById('czmlPackets').textContent = response.packet_count || czmlData.length;
     document.getElementById('exportSuccess').style.display = 'block';
     document.getElementById('loadBtn').disabled = false;
 
-    UI.showSuccess('✓ CZML document exported successfully!');
+    const savedMsg = response.replaced ? '(replaced existing)' : '(saved new)';
+    UI.showSuccess(`✓ CZML document exported successfully! ${savedMsg}`);
     UI.showResults('CZML Document', czmlData);
 
   } catch (error) {

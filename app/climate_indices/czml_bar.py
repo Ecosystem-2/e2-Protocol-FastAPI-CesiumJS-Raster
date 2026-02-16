@@ -7,10 +7,67 @@ from typing import Any
 import numpy as np
 
 from app.climate_indices.models import PolygonSelectionRecord, CZMLExportOptions
+from app.climate_indices.czml_description import build_description_html
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _build_sampled_bar_height(stats_group: list, options: CZMLExportOptions) -> dict:
+    """Build a sampled cylinder length property for interpolation mode."""
+    samples = []
+    for stat in stats_group:
+        if not stat.time_range or not stat.time_range.start:
+            continue
+        value = getattr(stat, options.value_field)
+        if value is None:
+            continue
+        
+        height = value * options.bar_height_multiplier
+        iso_time = stat.time_range.start.isoformat()
+        samples.extend([iso_time, height])
+    
+    if not samples:
+        return {"number": 0}
+    
+    return {
+        "number": samples,
+        "interpolationAlgorithm": "LINEAR",
+        "interpolationDegree": 1
+    }
+
+
+def _build_sampled_bar_colour(
+    stats_group: list,
+    options: CZMLExportOptions,
+    vmin: float,
+    vmax: float
+) -> dict:
+    """Build a sampled colour property for bar interpolation mode."""
+    samples = []
+    
+    for stat in stats_group:
+        if not stat.time_range or not stat.time_range.start:
+            continue
+        value = getattr(stat, options.value_field)
+        if value is None:
+            continue
+        
+        r, g, b, a = colourmap_interpret(
+            vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
+        )
+        iso_time = stat.time_range.start.isoformat()
+        samples.extend([iso_time, r, g, b, a])
+    
+    if not samples:
+        return {"rgba": [128, 128, 128, 255]}
+    
+    return {
+        "rgba": samples,
+        "interpolationAlgorithm": "LINEAR",
+        "interpolationDegree": 1
+    }
 
 
 def export_bar_czml(
@@ -44,54 +101,99 @@ def export_bar_czml(
         )
         
         if has_temporal:
-            # Create SEPARATE entity for EACH time period
-            for period_idx, stat in enumerate(stats_group):
-                value = getattr(stat, options.value_field)
-                if value is None or not stat.time_range or not stat.time_range.start or not stat.time_range.end:
-                    continue
+            # Branch based on interpolation mode
+            if options.interpolation_mode == "interpolation":
+                # Create single entity with sampled (interpolated) properties
+                entity_id = f"{selection.title}_{index_type.replace(' ', '_')}_bar"
                 
-                height = value * options.bar_height_multiplier
-                r, g, b, a = colourmap_interpret(
-                    vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
-                )
+                # Build sampled properties
+                sampled_height = _build_sampled_bar_height(stats_group, options)
+                sampled_colour = _build_sampled_bar_colour(stats_group, options, vmin, vmax)
                 
-                entity_id = f"{selection.name}_{index_type.replace(' ', '_')}_bar_{period_idx}"
-                availability = f"{stat.time_range.start.isoformat()}/{stat.time_range.end.isoformat()}"
+                # Determine availability from first to last period
+                starts = [s.time_range.start for s in stats_group if s.time_range and s.time_range.start]
+                ends = [s.time_range.end for s in stats_group if s.time_range and s.time_range.end]
                 
-                time_label = stat.time_range.start.strftime('%Y-%m-%d')
+                availability = None
+                if starts and ends:
+                    availability = f"{min(starts).isoformat()}/{max(ends).isoformat()}"
+                
+                first_stat = stats_group[0] if stats_group else None
+                first_height = getattr(first_stat, options.value_field, 0) * options.bar_height_multiplier if first_stat else 0
+                time_label = first_stat.time_range.start.strftime('%Y-%m-%d') if first_stat and first_stat.time_range and first_stat.time_range.start else None
                 
                 packet = {
                     "id": entity_id,
-                    "name": f"{index_type} ({time_label})",
-                    "availability": availability,
+                    "name": f"{index_type} (Interpolated)",
                     "position": {"cartographicDegrees": [lon, lat, 0]},
                     "cylinder": {
-                        "length": height,
+                        "length": sampled_height,
                         "topRadius": 500,
                         "bottomRadius": 500,
                         "material": {
-                            "solidColor": {"color": {"rgba": [r, g, b, a]}}
+                            "solidColor": {"color": sampled_colour}
                         },
                         "outline": True,
                         "outlineColor": {"rgba": [255, 255, 255, 200]}
                     },
-                    "description": (
-                        f"<div style='color: #1e293b; background: white; padding: 10px;'>"
-                        f"<p><strong>{index_type}</strong></p>"
-                        f"<p><strong>Period: {time_label}</strong></p>"
-                        f"<p>Mean: {stat.mean:.2f} {stat.units or ''}</p>"
-                        f"<p>Min: {stat.min:.2f}, Max: {stat.max:.2f}</p>"
-                        f"<p>Std Dev: {stat.std:.2f}</p>"
-                        f"<p>Pixel Count: {stat.count}</p>"
-                        f"</div>"
+                    "description": build_description_html(
+                        index_type=index_type,
+                        stat=first_stat,
+                        height=first_height,
+                        time_label=f"{time_label} (interpolated)" if time_label else "(interpolated)"
                     )
                 }
                 
+                if availability:
+                    packet["availability"] = availability
+                
                 packets.append(packet)
-                logger.info(f"  Created entity {entity_id} for {availability}: height={height:.0f}m")
+                logger.info(f"  Created interpolated bar entity {entity_id} with {len(stats_group)} samples")
+            else:
+                # Step mode: Create SEPARATE entity for EACH time period
+                for period_idx, stat in enumerate(stats_group):
+                    value = getattr(stat, options.value_field)
+                    if value is None or not stat.time_range or not stat.time_range.start or not stat.time_range.end:
+                        continue
+                    
+                    height = value * options.bar_height_multiplier
+                    r, g, b, a = colourmap_interpret(
+                        vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
+                    )
+                    
+                    entity_id = f"{selection.title}_{index_type.replace(' ', '_')}_bar_{period_idx}"
+                    availability = f"{stat.time_range.start.isoformat()}/{stat.time_range.end.isoformat()}"
+                    
+                    time_label = stat.time_range.start.strftime('%Y-%m-%d')
+                    
+                    packet = {
+                        "id": entity_id,
+                        "name": f"{index_type} ({time_label})",
+                        "availability": availability,
+                        "position": {"cartographicDegrees": [lon, lat, 0]},
+                        "cylinder": {
+                            "length": height,
+                            "topRadius": 500,
+                            "bottomRadius": 500,
+                            "material": {
+                                "solidColor": {"color": {"rgba": [r, g, b, a]}}
+                            },
+                            "outline": True,
+                            "outlineColor": {"rgba": [255, 255, 255, 200]}
+                        },
+                        "description": build_description_html(
+                            index_type=index_type,
+                            stat=stat,
+                            height=height,
+                            time_label=time_label
+                        )
+                    }
+                    
+                    packets.append(packet)
+                    logger.info(f"  Created step bar entity {entity_id} for {availability}: height={height:.0f}m")
         else:
             # No temporal data - create single static entity
-            entity_id = f"{selection.name}_{index_type.replace(' ', '_')}_bar"
+            entity_id = f"{selection.title}_{index_type.replace(' ', '_')}_bar"
             first_stat = stats_group[0]
             value = getattr(first_stat, options.value_field)
             
@@ -115,14 +217,10 @@ def export_bar_czml(
                         "outline": True,
                         "outlineColor": {"rgba": [255, 255, 255, 200]}
                     },
-                    "description": (
-                        f"<div style='color: #1e293b; background: white; padding: 10px;'>"
-                        f"<p><strong>{index_type}</strong></p>"
-                        f"<p>Mean: {first_stat.mean:.2f} {first_stat.units or ''}</p>"
-                        f"<p>Min: {first_stat.min:.2f}, Max: {first_stat.max:.2f}</p>"
-                        f"<p>Std Dev: {first_stat.std:.2f}</p>"
-                        f"<p>Pixel Count: {first_stat.count}</p>"
-                        f"</div>"
+                    "description": build_description_html(
+                        index_type=index_type,
+                        stat=first_stat,
+                        height=height
                     )
                 }
                 
