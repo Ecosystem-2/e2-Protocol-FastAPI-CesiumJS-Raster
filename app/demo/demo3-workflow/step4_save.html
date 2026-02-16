@@ -30,7 +30,7 @@
     </div>
 
     <div class="step-content">
-      <h2 class="step-title">Save Selection to Site</h2>
+      <h2 class="step-title">Save Selections</h2>
       <p class="step-description">
         Store the polygon and its statistics in MongoDB. Saved selections can be retrieved by name 
         and exported as CZML visualisations in Step 5.
@@ -49,15 +49,14 @@
           <div style="margin-top: 10px;">
             <strong style="color: #94a3b8;">Required Parameters (Form Data):</strong>
             <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px;">
-title: "Site Name"                   # Required, 1-200 chars
-geometry: "{\"type\":...}"            # Required, GeoJSON string
+title: "Selection Title"             # Required, 1-200 chars
+geometry: "{\"type\":...}"            # Required, GeoJSON string (single or array)
 asset_ids: "id1,id2,id3"             # Required, comma-separated
-locale_id: "uuid-v4"                 # Required, parent locale UUID
 description: "Optional description"  # Optional
 tags: "tag1,tag2"                    # Optional, comma-separated
-category: "cat1,cat2"                # Optional, comma-separated
-user_id: "uuid"                      # Optional
-project_id: "uuid"                   # Optional</pre>
+locale_id: "uuid-v4"                 # Optional, for grouping
+site_id: "uuid-v4"                   # Optional, auto-generated if not provided
+user_id: "uuid"                      # Optional</pre>
           </div>
 
           <div style="margin-top: 15px;">
@@ -139,7 +138,7 @@ response = requests.post(
       <div class="control-panel">
         <div class="control-group">
           <label for="title">
-            Selection Name <span style="color: var(--workflow-danger);">*</span>
+            Selection Title <span style="color: var(--workflow-danger);">*</span>
           </label>
           <input type="text" id="title" placeholder="e.g. Segama River Delta PPET 2041-2070" required>
         </div>
@@ -329,9 +328,9 @@ response = requests.post(
         WorkflowState.set('saved_selection', response);
         WorkflowState.completeStep(4);
 
-        document.getElementById('savedId').textContent = response.siteID || response.site_id;
+        document.getElementById('savedId').textContent = response._id || response.id;
         document.getElementById('savedName').textContent = response.title;
-        document.getElementById('savedDate').textContent = Utils.formatDate(response.creationDateTime || response.creation_date_time);
+        document.getElementById('savedDate').textContent = Utils.formatDate(response.created_at);
         document.getElementById('saveSuccess').style.display = 'block';
         document.getElementById('nextBtn').disabled = false;
 
@@ -358,11 +357,11 @@ response = requests.post(
       if (saved) {
         savedSelection = saved;
         document.getElementById('title').value = saved.title;
-        document.getElementById('description').value = saved.description || saved.desc || '';
+        document.getElementById('description').value = saved.description || '';
         document.getElementById('tags').value = saved.tags?.join(', ') || '';
-        document.getElementById('savedId').textContent = saved.siteID || saved.site_id;
+        document.getElementById('savedId').textContent = saved._id || saved.id;
         document.getElementById('savedName').textContent = saved.title;
-        document.getElementById('savedDate').textContent = Utils.formatDate(saved.creationDateTime || saved.creation_date_time);
+        document.getElementById('savedDate').textContent = Utils.formatDate(saved.created_at);
         document.getElementById('saveSuccess').style.display = 'block';
         document.getElementById('nextBtn').disabled = false;
         UI.showSuccess('Previous selection loaded from session');

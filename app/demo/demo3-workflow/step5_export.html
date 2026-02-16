@@ -60,9 +60,19 @@
           </div>
         </div>
 
+        <div class="control-group">
+          <label for="indexType">Climate Index Type</label>
+          <select id="indexType">
+            <option value="">-- Loading index types... --</option>
+          </select>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+            Select which climate index to export (separate CZML per index avoids overlapping polygons)
+          </div>
+        </div>
+
         <div class="endpoint-badge" style="margin-bottom: 15px;">
           <span class="method post">POST</span>
-          <span>/api/climate-indices/sites/{site_id}/export-czml</span>
+          <span>/api/climate-indices/selections/{selection_id}/export-czml</span>
         </div>
 
         <!-- API Code Examples -->
@@ -72,25 +82,32 @@
           <div style="margin-top: 10px;">
             <strong style="color: #94a3b8; font-size: 11px;">Parameters (Form Data):</strong>
             <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px;">
-visualisation_type: "point" | "bar" | "billboard"  # Optional, default: point
+index_type: "ppet" | "wbgt"                       # Required - climate index to export
+visualisation_type: "polygon" | "bar"             # Optional, default: polygon
 colourmap_name: "viridis"                         # Optional, default: viridis
 value_field: "mean" | "min" | "max" | "std"       # Optional, default: mean
-point_size: 10                                     # Optional, 1-100
-bar_height_multiplier: 10000.0                    # Optional
-show_labels: true                                  # Optional</pre>
+interpolation_mode: "step" | "interpolation"      # Optional, default: step
+bar_height_multiplier: 10000.0                    # Optional, for bar type
+polygon_height_multiplier: 1000.0                 # Optional, for polygon type
+polygon_fill_opacity: 0.7                         # Optional, 0-1
+polygon_outline: true                              # Optional
+show_labels: true                                  # Optional
+save_to_db: true                                   # Optional, saves to MongoDB</pre>
           </div>
 
           <div style="margin-top: 12px;">
             <strong style="color: #94a3b8; font-size: 11px;">JavaScript:</strong>
             <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px; color: #e2e8f0;">
-const siteId = 'dac9b4f8-117f-438e-9601-8a3ef1401a28';
+const selectionId = '679b2c4f5e1342a8b9d3f014';
 const formData = new FormData();
-formData.append('visualisation_type', 'point');
+formData.append('index_type', 'ppet');            // Required
+formData.append('visualisation_type', 'polygon');
 formData.append('colourmap_name', 'viridis');
 formData.append('value_field', 'mean');
+formData.append('interpolation_mode', 'step');    // or 'interpolation'
 
 const response = await fetch(
-  `/api/climate-indices/sites/${siteId}/export-czml`,
+  `/api/climate-indices/selections/${selectionId}/export-czml`,
   { 
     method: 'POST',
     body: formData
@@ -104,15 +121,17 @@ const czml = await response.json();</pre>
             <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px; color: #e2e8f0;">
 import requests
 
-site_id = 'dac9b4f8-117f-438e-9601-8a3ef1401a28'
+selection_id = '679b2c4f5e1342a8b9d3f014'
 data = {
-    'visualisation_type': 'point',
+    'index_type': 'ppet',                         # Required
+    'visualisation_type': 'polygon',
     'colourmap_name': 'viridis',
-    'value_field': 'mean'
+    'value_field': 'mean',
+    'interpolation_mode': 'step'                  # or 'interpolation'
 }
 
 response = requests.post(
-    f'http://localhost:8080/api/climate-indices/sites/{site_id}/export-czml',
+    f'http://localhost:8080/api/climate-indices/selections/{selection_id}/export-czml',
     data=data
 )
 czml = response.json()</pre>
@@ -122,21 +141,38 @@ czml = response.json()</pre>
         <div class="control-group">
           <label for="visualisationType">Visualisation Type</label>
           <select id="visualisationType">
-            <option value="point">Point (coloured dots)</option>
+            <option value="polygon" selected>Polygon (extruded shape)</option>
             <option value="bar">Bar (3D cylinders)</option>
-            <option value="billboard">Billboard (icons with labels)</option>
           </select>
         </div>
 
         <div class="control-group">
           <label for="colourmapName">Colourmap</label>
           <select id="colourmapName">
-            <option value="viridis">Viridis</option>
-            <option value="plasma">Plasma</option>
-            <option value="inferno">Inferno</option>
-            <option value="RdYlGn">RdYlGn (Red-Yellow-Green)</option>
-            <option value="coolwarm">Cool-Warm</option>
+            <!-- Fallback options (replaced by API data on load) -->
+            <optgroup label="Perceptually Uniform">
+              <option value="viridis" selected>viridis</option>
+              <option value="plasma">plasma</option>
+              <option value="inferno">inferno</option>
+              <option value="magma">magma</option>
+              <option value="cividis">cividis</option>
+            </optgroup>
+            <optgroup label="Diverging">
+              <option value="RdYlGn">RdYlGn</option>
+              <option value="RdBu">RdBu</option>
+              <option value="coolwarm">coolwarm</option>
+              <option value="seismic">seismic</option>
+            </optgroup>
+            <optgroup label="Sequential">
+              <option value="Blues">Blues</option>
+              <option value="Greens">Greens</option>
+              <option value="Reds">Reds</option>
+              <option value="YlOrRd">YlOrRd</option>
+            </optgroup>
           </select>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+            Loaded dynamically from Matplotlib (211 options)
+          </div>
         </div>
 
         <div class="control-group">
@@ -145,8 +181,33 @@ czml = response.json()</pre>
             <option value="mean">Mean</option>
             <option value="min">Minimum</option>
             <option value="max">Maximum</option>
-            <option value="count">Pixel Count</option>
+            <option value="std">Standard Deviation</option>
           </select>
+        </div>
+
+        <div class="control-group">
+          <label for="interpolationMode">Animation Mode</label>
+          <select id="interpolationMode">
+            <option value="step" selected>Step (discrete values per period)</option>
+            <option value="interpolation">Interpolation (smooth transitions)</option>
+          </select>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+            Step: Shows constant values for each time period. Interpolation: Smoothly animates between period values.
+          </div>
+        </div>
+
+        <div class="control-group" id="polygonOptionsGroup" style="display: none;">
+          <label>Polygon Options</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label for="polygonHeightMultiplier" style="font-size: 12px;">Height Multiplier</label>
+              <input type="number" id="polygonHeightMultiplier" value="1000" min="1" step="100" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
+            </div>
+            <div>
+              <label for="polygonFillOpacity" style="font-size: 12px;">Fill Opacity</label>
+              <input type="number" id="polygonFillOpacity" value="0.7" min="0" max="1" step="0.1" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
+            </div>
+          </div>
         </div>
 
         <button class="btn btn-primary" onclick="exportCZML()">

@@ -158,8 +158,7 @@ const API = {
     formData.append('tags', tags || '');
     formData.append('geometry', JSON.stringify(geometry));
     
-    // Add locale_id (required for E2-style structure)
-    // Generate or retrieve from workflow state
+    // Add locale_id (optional for grouping)
     let localeId = WorkflowState.get('locale_id');
     if (!localeId) {
       // Generate a default locale UUID and persist it
@@ -252,6 +251,43 @@ const API = {
     
     if (!response.ok) {
       throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  },
+  
+  // Export selection as CZML with full options (including polygon parameters)
+  async exportCZMLWithOptions(selectionId, options) {
+    const formData = new FormData();
+    
+    // Add all options to form data
+    for (const [key, value] of Object.entries(options)) {
+      formData.append(key, value);
+    }
+    
+    const response = await fetch(`${API_BASE}/selections/${selectionId}/export-czml`, {
+      method: 'POST',
+      body: formData
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`);
+    }
+    
+    return await response.json();
+  },
+  
+  // Get list of available colourmaps
+  async listColourmaps(category = null) {
+    let url = `${API_BASE}/colourmaps`;
+    if (category) {
+      url += `?category=${encodeURIComponent(category)}`;
+    }
+    
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch colourmaps: ${response.statusText}`);
     }
     
     return await response.json();

@@ -570,26 +570,26 @@ stats = response.json()
 
     async function loadPreviousSelection() {
       try {
-        UI.showStatus('Loading saved sites...');
-        const sites = await API.listSites();
+        UI.showStatus('Loading saved selections...');
+        const selections = await API.listSelections();
         
-        if (!sites || sites.length === 0) {
+        if (!selections || selections.length === 0) {
           document.getElementById('modalSelectionsList').innerHTML = `
             <p style="text-align: center; color: #94a3b8; padding: 20px;">
-              No saved sites found. Complete Step 4 to save a selection first.
+              No saved selections found. Complete Step 4 to save a selection first.
             </p>
           `;
         } else {
-          const html = sites.map(site => `
-            <div onclick="loadSite('${site.site_id}')" style="padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; margin-bottom: 10px; cursor: pointer; border: 1px solid rgba(148, 163, 184, 0.2); transition: all 0.2s;" 
+          const html = selections.map(sel => `
+            <div onclick="loadSelection('${sel.id}')" style="padding: 12px; background: rgba(59, 130, 246, 0.1); border-radius: 6px; margin-bottom: 10px; cursor: pointer; border: 1px solid rgba(148, 163, 184, 0.2); transition: all 0.2s;" 
                  onmouseover="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.borderColor='rgba(59, 130, 246, 0.5)'"
                  onmouseout="this.style.background='rgba(59, 130, 246, 0.1)'; this.style.borderColor='rgba(148, 163, 184, 0.2)'">
-              <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">${site.title}</div>
+              <div style="font-weight: 600; color: #e2e8f0; margin-bottom: 4px;">${sel.title}</div>
               <div style="font-size: 12px; color: #94a3b8;">
-                ${site.desc || 'No description'} | ${site.statistics_count} stat(s) | ${site.tags?.join(', ') || 'No tags'}
+                ${sel.description || 'No description'} | ${sel.statistics_count} stat(s) | ${sel.tags?.join(', ') || 'No tags'}
               </div>
               <div style="font-size: 11px; color: #64748b; margin-top: 4px;">
-                Created: ${new Date(site.created).toLocaleString()}
+                Created: ${new Date(sel.created_at).toLocaleString()}
               </div>
             </div>
           `).join('');
@@ -597,37 +597,40 @@ stats = response.json()
         }
         
         document.getElementById('selectionsModal').style.display = 'flex';
-        UI.showSuccess(`Loaded ${sites.length} site(s)`);
+        UI.showSuccess(`Loaded ${selections.length} selection(s)`);
       } catch (error) {
-        UI.showStatus(`Failed to load sites: ${error.message}`, true);
+        UI.showStatus(`Failed to load selections: ${error.message}`, true);
         console.error('Load error:', error);
       }
     }
 
-    async function loadSite(siteId) {
+    async function loadSelection(selectionId) {
       try {
-        UI.showStatus('Loading site geometry...');
+        UI.showStatus('Loading selection geometry...');
         
-        // Fetch site details to get the polygon geometry
-        const response = await fetch(`${API_BASE}/sites/${siteId}`);
+        // Fetch selection details to get the polygon geometry
+        const response = await fetch(`${API_BASE}/selections/${selectionId}`);
         if (!response.ok) {
-          throw new Error('Failed to load site details');
+          throw new Error('Failed to load selection details');
         }
         
-        const site = await response.json();
-        let polygons = site.location?.polygon;
+        const selection = await response.json();
         
-        if (!polygons) {
-          throw new Error('Site has no polygon geometry');
+        // New nested structure: selection.polygons[].geometry
+        // Extract geometries from polygons array
+        let polygons;
+        if (selection.polygons && Array.isArray(selection.polygons)) {
+          // New structure: extract geometry from each PolygonWithStatistics
+          polygons = selection.polygons.map(p => p.geometry);
+        } else if (selection.polygon) {
+          // Legacy fallback: direct polygon array or single polygon
+          polygons = Array.isArray(selection.polygon) ? selection.polygon : [selection.polygon];
+        } else {
+          throw new Error('Selection has no polygon geometry');
         }
         
-        // Handle both single polygon and array of polygons
-        if (!Array.isArray(polygons)) {
-          polygons = [polygons];
-        }
-        
-        if (polygons.length === 0 || !polygons[0].coordinates) {
-          throw new Error('Site has no valid polygon geometry');
+        if (polygons.length === 0 || !polygons[0] || !polygons[0].coordinates) {
+          throw new Error('Selection has no valid polygon geometry');
         }
         
         // Clear existing polygons
@@ -676,14 +679,14 @@ stats = response.json()
         }
         
         closeSelectionsModal();
-        UI.showSuccess(`Loaded site: ${site.title}`);
+        UI.showSuccess(`Loaded selection: ${selection.title}`);
         
         // Auto-query
         queryAllPolygons();
         
       } catch (error) {
-        UI.showStatus(`Failed to load site: ${error.message}`, true);
-        console.error('Load site error:', error);
+        UI.showStatus(`Failed to load selection: ${error.message}`, true);
+        console.error('Load selection error:', error);
       }
     }
 
