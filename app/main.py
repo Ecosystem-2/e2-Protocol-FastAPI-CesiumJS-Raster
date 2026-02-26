@@ -34,11 +34,7 @@ def create_app() -> FastAPI:
             "service": "hob-fastapi",
             "routers": ["geotif_converter", "climate_indices", "demo"],
             "docs": "/docs",
-            "demo_pages": [
-                "/demo/demo1_ingest_tiles.html",
-                "/demo/demo2_climate_tiles_viewer.html",
-                "/demo/demo3-workflow/"
-            ]
+            "demo": "/demo/"
         }
 
     return app

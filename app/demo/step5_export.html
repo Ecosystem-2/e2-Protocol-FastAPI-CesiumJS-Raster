@@ -4,9 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Step 5: Export CZML | Demo 3 Workflow</title>
-  <link rel="stylesheet" href="../static/demo3-styles.css">
-  <link rel="stylesheet" href="../static/cesium-viewer.css">
-  <link rel="stylesheet" href="../static/step5_export.css">
+  <link rel="stylesheet" href="static/demo3-styles.css">
+  <link rel="stylesheet" href="static/cesium-viewer.css">
+  <link rel="stylesheet" href="static/step5_export.css">
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 </head>
@@ -88,6 +88,8 @@ colourmap_name: "viridis"                         # Optional, default: viridis
 value_field: "mean" | "min" | "max" | "std"       # Optional, default: mean
 interpolation_mode: "step" | "interpolation"      # Optional, default: step
 bar_height_multiplier: 10000.0                    # Optional, for bar type
+bar_radius_multiplier: 10.0                       # Optional, radius = pixels × multiplier
+bar_minimum_radius: 500.0                         # Optional, ensures visibility (metres)
 polygon_height_multiplier: 1000.0                 # Optional, for polygon type
 polygon_fill_opacity: 0.7                         # Optional, 0-1
 polygon_outline: true                              # Optional
@@ -210,6 +212,27 @@ czml = response.json()</pre>
           </div>
         </div>
 
+        <div class="control-group" id="barOptionsGroup" style="display: none;">
+          <label>Bar Options</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+            <div>
+              <label for="barHeightMultiplier" style="font-size: 12px;">Height Multiplier</label>
+              <input type="number" id="barHeightMultiplier" value="10000" min="1" step="1000" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
+            </div>
+            <div>
+              <label for="barRadiusMultiplier" style="font-size: 12px;">Radius Multiplier</label>
+              <input type="number" id="barRadiusMultiplier" value="10" min="0.1" step="1" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
+            </div>
+            <div>
+              <label for="barMinimumRadius" style="font-size: 12px;">Minimum Radius (m)</label>
+              <input type="number" id="barMinimumRadius" value="500" min="0" step="100" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">
+            Radius = max(pixel_count × multiplier, minimum_radius)
+          </div>
+        </div>
+
         <button class="btn btn-primary" onclick="exportCZML()">
           📦 Export CZML
         </button>
@@ -252,7 +275,7 @@ czml = response.json()</pre>
     </div>
   </div>
 
-  <script src="../static/demo3-common.js"></script>
-  <script src="../static/step5_export.js"></script>
+  <script src="static/demo3-common.js"></script>
+  <script src="static/step5_export.js"></script>
 </body>
 </html>

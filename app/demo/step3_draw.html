@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Step 3: Draw Polygon | Demo 3 Workflow</title>
-  <link rel="stylesheet" href="../static/demo3-styles.css">
-  <link rel="stylesheet" href="../static/cesium-viewer.css">
+  <link rel="stylesheet" href="static/demo3-styles.css">
+  <link rel="stylesheet" href="static/cesium-viewer.css">
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 </head>
@@ -161,7 +161,7 @@ stats = response.json()
     </div>
   </div>
 
-  <script src="../static/demo3-common.js"></script>
+  <script src="static/demo3-common.js"></script>
   <script>
     let viewer = null;
     let drawnPolygons = []; // Store multiple polygon entities
@@ -169,10 +169,10 @@ stats = response.json()
     let handler = null;
 
     UI.updateStepProgress(3);
-    initializeCesium();
+    initialiseCesium();
     loadPreviousTiles();
 
-    function initializeCesium() {
+    function initialiseCesium() {
       Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
       
       viewer = new Cesium.Viewer('cesiumContainer', {

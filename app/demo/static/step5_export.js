@@ -63,18 +63,22 @@ async function loadColourmaps() {
   }
 }
 
-// Listen for visualisation type change to show/hide polygon options
+// Listen for visualisation type change to show/hide type-specific options
 document.getElementById('visualisationType').addEventListener('change', function() {
   const polygonOptionsGroup = document.getElementById('polygonOptionsGroup');
+  const barOptionsGroup = document.getElementById('barOptionsGroup');
   if (this.value === 'polygon') {
     polygonOptionsGroup.style.display = 'block';
+    barOptionsGroup.style.display = 'none';
   } else {
     polygonOptionsGroup.style.display = 'none';
+    barOptionsGroup.style.display = 'block';
   }
 });
 
 // Show polygon options by default (polygon is now the default type)
 document.getElementById('polygonOptionsGroup').style.display = 'block';
+document.getElementById('barOptionsGroup').style.display = 'none';
 
 async function loadSelections() {
   try {
@@ -232,7 +236,7 @@ async function exportCZML() {
     save_to_db: true
   };
   
-  // Add polygon-specific options if polygon type selected
+  // Add type-specific options
   if (visualisationType === 'polygon') {
     const heightMultiplier = document.getElementById('polygonHeightMultiplier');
     const fillOpacity = document.getElementById('polygonFillOpacity');
@@ -241,6 +245,19 @@ async function exportCZML() {
     }
     if (fillOpacity) {
       exportOptions.polygon_fill_opacity = parseFloat(fillOpacity.value) || 0.7;
+    }
+  } else if (visualisationType === 'bar') {
+    const barHeight = document.getElementById('barHeightMultiplier');
+    const barRadius = document.getElementById('barRadiusMultiplier');
+    const barMinRadius = document.getElementById('barMinimumRadius');
+    if (barHeight) {
+      exportOptions.bar_height_multiplier = parseFloat(barHeight.value) || 10000;
+    }
+    if (barRadius) {
+      exportOptions.bar_radius_multiplier = parseFloat(barRadius.value) || 10;
+    }
+    if (barMinRadius) {
+      exportOptions.bar_minimum_radius = parseFloat(barMinRadius.value) || 500;
     }
   }
 

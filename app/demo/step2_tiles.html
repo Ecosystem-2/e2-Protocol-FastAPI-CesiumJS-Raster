@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Step 2: View Tiles | Demo 3 Workflow</title>
-  <link rel="stylesheet" href="../static/demo3-styles.css">
-  <link rel="stylesheet" href="../static/cesium-viewer.css">
+  <link rel="stylesheet" href="static/demo3-styles.css">
+  <link rel="stylesheet" href="static/cesium-viewer.css">
   <script src="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Cesium.js"></script>
   <link href="https://cesium.com/downloads/cesiumjs/releases/1.121/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
 </head>
@@ -162,7 +162,7 @@
     </div>
   </div>
 
-  <script src="../static/demo3-common.js"></script>
+  <script src="static/demo3-common.js"></script>
   <script>
     const INDEX_CONFIGS = {
       'ppet': { colormap: 'blues', scale_min: 0, scale_max: 12 },
@@ -180,12 +180,12 @@
     let currentSlice = null;
     let currentLayer = null;
 
-    // Initialize
+    // Initialise
     UI.updateStepProgress(2);
-    initializeCesium();
+    initialiseCesium();
     loadAssets();
 
-    function initializeCesium() {
+    function initialiseCesium() {
       Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
       
       viewer = new Cesium.Viewer('cesiumContainer', {

@@ -1,9 +1,9 @@
-# Climate API Tests - Updated for Reorganized Structure
+# Climate API Tests - Updated for Reorganised Structure
 
 ## Test Files Overview
 
 ### 1. **test_climate_endpoints.py** (NEW) - Integration Tests
-Comprehensive tests for the reorganized API endpoints structure.
+Comprehensive tests for the reorganised API endpoints structure.
 
 **Test Classes:**
 - `TestIngestEndpoints` - Tests `/ingest` and `/ingest/store`
@@ -104,7 +104,7 @@ Test polygon geometries for Segama River region.
 |----------|--------|-------------|
 | `/query/polygons/pixels` | POST | Extract raw pixel values (CSV/JSON) |
 
-### Reorganized Files
+### Reorganised Files
 | Old | New |
 |-----|-----|
 | `endpoints/tiles.py` (565 lines) | Split into 4 files: |

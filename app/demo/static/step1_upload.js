@@ -2,7 +2,7 @@
 
 let uploadedAsset = null;
 
-// Initialize step progress
+// Initialise step progress
 UI.updateStepProgress(1);
 
 // Update file label when file selected

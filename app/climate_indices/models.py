@@ -233,6 +233,18 @@ class CZMLExportOptions(BaseModel):
         description="Multiplier for bar chart heights (metres)"
     )
 
+    bar_radius_multiplier: float = Field(
+        default=10.0,
+        gt=0,
+        description="Multiplier for bar radius: radius = pixel_count * multiplier"
+    )
+
+    bar_minimum_radius: float = Field(
+        default=500.0,
+        ge=0,
+        description="Minimum bar radius in metres (ensures visibility)"
+    )
+
     polygon_height_multiplier: float = Field(
         default=1000.0,
         gt=0,
