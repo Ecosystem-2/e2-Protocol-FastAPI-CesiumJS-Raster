@@ -12,7 +12,7 @@ from app.api.climate.endpoints.czml import router as czml_router
 # Create main router with prefix
 router = APIRouter(prefix="/climate-indices")
 
-# Include sub-routers with specific tags for better docs organization
+# Include sub-routers with specific tags for better docs organisation
 router.include_router(tiles_router, tags=["climate_tiles"])
 router.include_router(assets_router, tags=["climate_assets"])
 router.include_router(ingest_router, tags=["climate_ingest"])

@@ -159,11 +159,11 @@ curl http://127.0.0.1:8080/
 curl http://127.0.0.1:8080/api/climate-indices/assets
 ```
 
-### 3. View Demo Tiles
+### 3. View Demo Workflow
 
-If the server is running, you can access the interactive demo:
-- Open `app/demo/climate_tiles_viewer.html` in your browser
-- Ensure it points to `http://127.0.0.1:8080/api/climate-indices`
+If the server is running, you can access the interactive workflow demo:
+- Open `http://127.0.0.1:8080/demo/` in your browser
+- The workflow guides you through upload, tiles, draw, save, and export steps
 
 ---
 ## Development Workflow
@@ -183,7 +183,7 @@ uv run python tests/test_polygon_query.py
 - `app/api/climate/endpoints/` - REST API endpoint handlers
 - `app/climate_indices/` - Domain layer (service, repository, storage)
 - `app/geotif_converter/` - Raster utilities and conversion tools
-- `app/demo/` - Interactive Cesium demos
+- `app/demo/` - Interactive Cesium workflow demo (upload → tiles → draw → save → export)
 - `tests/` - Test files and test data
 
 ### Adding New Dependencies

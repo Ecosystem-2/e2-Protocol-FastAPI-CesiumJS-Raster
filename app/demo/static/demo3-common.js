@@ -402,7 +402,7 @@ const UI = {
 
 // Cesium Helper Functions
 const CesiumHelper = {
-  // Initialize Cesium viewer
+  // Initialise Cesium viewer
   initViewer(containerId) {
     Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5N2U0ZGU3NC0zN2M5LTQ0YzUtYmM0Yi0xMzc0MWIzMTEwY2MiLCJpZCI6MjUzMDEyLCJpYXQiOjE3NDkxODgzMDl9.123-example-token';
     

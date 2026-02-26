@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 from app.climate_indices.models import PolygonSelectionRecord, CZMLExportOptions
-from app.climate_indices.czml_description import build_description_html
+from app.climate_indices.czml_description import build_description_html, PeriodStats
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
 
@@ -53,8 +54,13 @@ def _build_sampled_height(stats_group: list, options: CZMLExportOptions) -> dict
     Build a sampled extrudedHeight property for interpolation mode.
     
     Format: [ISO_time_1, value_1, ISO_time_2, value_2, ...]
+    
+    Adds samples at both period start AND end to hold value constant within each period,
+    plus a far-future sample to keep the last value visible.
     """
     samples = []
+    last_height = 0
+    
     for stat in stats_group:
         if not stat.time_range or not stat.time_range.start:
             continue
@@ -63,11 +69,23 @@ def _build_sampled_height(stats_group: list, options: CZMLExportOptions) -> dict
             continue
         
         height = value * options.polygon_height_multiplier
-        iso_time = stat.time_range.start.isoformat()
-        samples.extend([iso_time, height])
+        last_height = height
+        
+        # Add sample at period START
+        iso_start = stat.time_range.start.isoformat()
+        samples.extend([iso_start, height])
+        
+        # Add sample at period END (minus 1 day to avoid overlap) with same value
+        if stat.time_range.end:
+            end_time = stat.time_range.end - timedelta(days=1)
+            iso_end = end_time.isoformat()
+            samples.extend([iso_end, height])
     
     if not samples:
         return {"number": 0}
+    
+    # Add far-future sample to keep last value visible (year 2200)
+    samples.extend(["2200-01-01T00:00:00Z", last_height])
     
     return {
         "number": samples,
@@ -86,9 +104,13 @@ def _build_sampled_colour(
     Build a sampled colour property for interpolation mode.
     
     Format: [ISO_time_1, r1, g1, b1, a1, ISO_time_2, r2, g2, b2, a2, ...]
+    
+    Adds samples at both period start AND end to hold colour constant within each period,
+    plus a far-future sample to keep the last colour visible.
     """
     samples = []
     alpha = int(options.polygon_fill_opacity * 255)
+    last_rgba = (128, 128, 128, alpha)
     
     for stat in stats_group:
         if not stat.time_range or not stat.time_range.start:
@@ -100,8 +122,23 @@ def _build_sampled_colour(
         r, g, b, _ = colourmap_interpret(
             vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
         )
-        iso_time = stat.time_range.start.isoformat()
-        samples.extend([iso_time, r, g, b, alpha])
+        last_rgba = (r, g, b, alpha)
+        
+        # Add sample at period START
+        iso_start = stat.time_range.start.isoformat()
+        samples.extend([iso_start, r, g, b, alpha])
+        
+        # Add sample at period END (minus 1 day to avoid overlap) with same colour
+        if stat.time_range.end:
+            end_time = stat.time_range.end - timedelta(days=1)
+            iso_end = end_time.isoformat()
+            samples.extend([iso_end, r, g, b, alpha])
+    
+    if not samples:
+        return {"rgba": [128, 128, 128, alpha]}
+    
+    # Add far-future sample to keep last colour visible (year 2200)
+    samples.extend(["2200-01-01T00:00:00Z", last_rgba[0], last_rgba[1], last_rgba[2], last_rgba[3]])
     
     if not samples:
         return {"rgba": [128, 128, 128, alpha]}
@@ -135,13 +172,13 @@ def _build_interpolated_polygon_packet(
     sampled_height = _build_sampled_height(stats_group, options)
     sampled_colour = _build_sampled_colour(stats_group, options, vmin, vmax)
     
-    # Determine availability from first to last period
+    # Determine availability from first period to far future (so it stays visible)
     starts = [s.time_range.start for s in stats_group if s.time_range and s.time_range.start]
-    ends = [s.time_range.end for s in stats_group if s.time_range and s.time_range.end]
     
     availability = None
-    if starts and ends:
-        availability = f"{min(starts).isoformat()}/{max(ends).isoformat()}"
+    if starts:
+        # Extend to year 2200 so polygon stays visible after last data period
+        availability = f"{min(starts).isoformat()}/2200-01-01T00:00:00Z"
     
     packet: dict[str, Any] = {
         "id": entity_id,
@@ -168,36 +205,34 @@ def _build_interpolated_polygon_packet(
     if availability:
         packet["availability"] = availability
     
-    # Use first stat for description (will update dynamically in Cesium timeline)
+    # Build PeriodStats for all periods
     first_stat = stats_group[0] if stats_group else None
     if first_stat:
         first_height = getattr(first_stat, options.value_field, 0) * options.polygon_height_multiplier
-        time_label = first_stat.time_range.start.strftime('%Y-%m-%d') if first_stat.time_range and first_stat.time_range.start else None
+        
+        # Build list of PeriodStats for the table display
+        all_periods = [
+            PeriodStats(
+                start=s.time_range.start.strftime('%Y-%m-%d'),
+                end=s.time_range.end.strftime('%Y-%m-%d'),
+                mean=s.mean,
+                std=s.std,
+                min=s.min,
+                max=s.max,
+                count=s.count,
+                units=s.units or ''
+            )
+            for s in stats_group
+            if s.time_range and s.time_range.start and s.time_range.end
+        ]
+        
         packet["description"] = build_description_html(
             index_type=index_type,
             stat=first_stat,
             height=first_height,
-            time_label=f"{time_label} (interpolated)"
+            all_periods=all_periods,
+            is_interpolated=True
         )
-    
-    # Add label at centroid if enabled (uses first value)
-    if options.show_labels and first_stat:
-        value = getattr(first_stat, options.value_field)
-        if value is not None:
-            first_height = value * options.polygon_height_multiplier
-            packet["position"] = {
-                "cartographicDegrees": [centroid["lon"], centroid["lat"], first_height]
-            }
-            packet["label"] = {
-                "text": f"{index_type.upper()} (interpolated)",
-                "font": "14pt sans-serif",
-                "fillColor": {"rgba": [255, 255, 255, 255]},
-                "outlineColor": {"rgba": [0, 0, 0, 255]},
-                "outlineWidth": 2,
-                "pixelOffset": {"cartesian2": [0, -20]},
-                "style": "FILL_AND_OUTLINE",
-                "verticalOrigin": "BOTTOM"
-            }
     
     return packet
 
@@ -322,20 +357,39 @@ def export_polygon_czml(
                         availability = (
                             f"{stat.time_range.start.isoformat()}/{stat.time_range.end.isoformat()}"
                         )
-                        time_label = stat.time_range.start.strftime('%Y-%m-%d')
+                        time_start = stat.time_range.start.strftime('%Y-%m-%d')
+                        time_end = stat.time_range.end.strftime('%Y-%m-%d')
+                        
+                        # Build list of PeriodStats for all periods
+                        all_periods = [
+                            PeriodStats(
+                                start=s.time_range.start.strftime('%Y-%m-%d'),
+                                end=s.time_range.end.strftime('%Y-%m-%d'),
+                                mean=s.mean,
+                                std=s.std,
+                                min=s.min,
+                                max=s.max,
+                                count=s.count,
+                                units=s.units or ''
+                            )
+                            for s in stats_group
+                            if s.time_range and s.time_range.start and s.time_range.end
+                        ]
                         
                         packet = _build_polygon_packet(
                             entity_id=entity_id,
-                            name=f"{index_type} ({time_label})",
+                            name=f"{index_type} ({time_start})",
                             geometry=geometry,
                             extruded_height=extruded_height,
                             rgba=(r, g, b, alpha),
                             options=options,
                             stat=stat,
                             index_type=index_type,
-                            time_label=time_label,
+                            time_start=time_start,
+                            time_end=time_end,
                             availability=availability,
-                            centroid=polygon_centroid
+                            centroid=polygon_centroid,
+                            all_periods=all_periods
                         )
                         
                         packets.append(packet)
@@ -369,9 +423,11 @@ def export_polygon_czml(
                         options=options,
                         stat=first_stat,
                         index_type=index_type,
-                        time_label=None,
+                        time_start=None,
+                        time_end=None,
                         availability=None,
-                        centroid=polygon_centroid
+                        centroid=polygon_centroid,
+                        all_periods=None
                     )
                     
                     packets.append(packet)
@@ -391,9 +447,11 @@ def _build_polygon_packet(
     options: CZMLExportOptions,
     stat: Any,
     index_type: str,
-    time_label: str | None,
+    time_start: str | None,
+    time_end: str | None,
     availability: str | None,
-    centroid: dict[str, float]
+    centroid: dict[str, float],
+    all_periods: list[PeriodStats] | None = None
 ) -> dict[str, Any]:
     """Build a CZML polygon packet with extrusion."""
     
@@ -433,7 +491,9 @@ def _build_polygon_packet(
         index_type=index_type,
         stat=stat,
         height=extruded_height,
-        time_label=time_label
+        time_start=time_start,
+        time_end=time_end,
+        all_periods=all_periods
     )
     
     # Add label at centroid if enabled

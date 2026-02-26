@@ -73,7 +73,7 @@ docker-compose down
 
 ## Docker Image
 
-The Dockerfile uses **multi-stage build** for optimization:
+The Dockerfile uses **multi-stage build** for optimisation:
 
 - **Builder stage**: Installs dependencies with UV
 - **Runtime stage**: Minimal image with only necessary files

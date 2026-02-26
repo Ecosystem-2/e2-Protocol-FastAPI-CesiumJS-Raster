@@ -7,9 +7,9 @@ tags_metadata = [
     {"name": "geotif_converter", "description": "Geotif converter endpoints."},
     # {"name": "demo", "description": "html demo poc routers."},
     
-    # Climate indices - organized by functionality
+    # Climate indices - organised by functionality
     {"name": "climate_ingest", "description": "Upload and ingest climate GeoTIFF files"},
-    {"name": "climate_tiles", "description": "Serve raster tiles for map visualization"},
+    {"name": "climate_tiles", "description": "Serve raster tiles for map visualisation"},
     {"name": "climate_assets", "description": "Browse and search climate data assets"},
     {"name": "climate_polygons", "description": "Query zonal statistics for polygons"},
     {"name": "climate_selections", "description": "Save and manage polygon selections"},

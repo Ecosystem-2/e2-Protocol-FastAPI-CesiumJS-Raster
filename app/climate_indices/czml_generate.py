@@ -157,7 +157,7 @@ class CZMLExportService:
             type_suffix = " (Bar Chart)" if options.visualisation_type == "bar" else ""
             doc_packet["name"] = f"{selection.title} - {index_type.upper()}{type_suffix}"
 
-        # Use first polygon's centroid for visualization positioning
+        # Use first polygon's centroid for polygon visualisation positioning
         if not selection.polygons:
             raise ValueError("Selection has no polygons")
         
@@ -165,8 +165,9 @@ class CZMLExportService:
 
         # Delegate to type-specific exporter
         if options.visualisation_type == "bar":
+            # Bar mode creates one bar PER POLYGON, each at its own centroid
             entity_packets = export_bar_czml(
-                selection, options, vmin, vmax, centroid, grouped_stats
+                selection, options, vmin, vmax, index_type_filter=index_type
             )
         elif options.visualisation_type == "polygon":
             entity_packets = export_polygon_czml(

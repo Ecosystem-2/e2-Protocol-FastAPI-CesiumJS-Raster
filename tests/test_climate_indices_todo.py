@@ -66,7 +66,7 @@ class TestGCSBlobStore:
     """Test GCS blob storage (requires mocking or credentials)."""
     
     def test_gcs_blob_store_init(self):
-        """Test GCSBlobStore initialization."""
+        """Test GCSBlobStore initialisation."""
         pytest.skip("Requires google-cloud-storage and credentials")
     
     def test_save_bytes(self):
@@ -78,7 +78,7 @@ class TestAssetRepository:
     """Test MongoDB repository (requires MongoDB connection)."""
     
     def test_repository_init(self):
-        """Test AssetRepository initialization."""
+        """Test AssetRepository initialisation."""
         pytest.skip("Requires MongoDB connection")
     
     def test_upsert_by_filename(self):

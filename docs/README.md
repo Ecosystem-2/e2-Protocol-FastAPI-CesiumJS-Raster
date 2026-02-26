@@ -36,7 +36,7 @@ This service ingests GeoTIFF climate index files, stores them in Google Cloud St
 - **Raster Processing**: rasterio, rio-tiler
 - **Storage**: Google Cloud Storage (GCS)
 - **Database**: MongoDB
-- **Visualization**: Cesium (frontend)
+- **Visualisation**: Cesium (frontend)
 
 
 ## Need Help?

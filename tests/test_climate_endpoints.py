@@ -1,4 +1,4 @@
-"""Integration tests for reorganized climate API endpoints.
+"""Integration tests for reorganised climate API endpoints.
 
 Tests all endpoints in the new structure:
 - /ingest (metadata only)

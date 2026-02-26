@@ -5,12 +5,12 @@ Goal
 ----
 - Accept climate index GeoTIFFs (humid-heat-stress, p-pet-ratio, etc.) across multiple time ranges.
 - Convert each upload into queryable GeoJSON (per-feature climate indices + start/end timestamps).
-- Persist metadata and assets in MongoDB (and object storage) and expose them for CesiumJS visualization and polygon-based queries.
+- Persist metadata and assets in MongoDB (and object storage) and expose them for CesiumJS visualisation and polygon-based queries.
 
 Ingestion + Conversion
 ----------------------
 - Upload API: accept GeoTIFF + form fields (index type, time_range or start/end, units). Validate CRS (target EPSG:4326), nodata, and bounds.
-- Convert to Cloud-Optimized GeoTIFF (COG) to enable range requests and pyramids; store original + COG.
+- Convert to Cloud-Optimised GeoTIFF (COG) to enable range requests and pyramids; store original + COG.
 - Derive vector footprints and basic stats: bounding box, mask nodata, compute histograms, min/max, and percentiles.
 - Generate GeoJSON:
   - For gridded summaries, polygonize masked cells (rasterio.features) but limit resolution; include properties: `index`, `time_start`, `time_end`, `mean`, `std`, `min`, `max`, `source_uri`.
@@ -28,7 +28,7 @@ Storage Strategy (Mongo + GCS)
   - Returns `gs://` URIs for use with rio-tiler's COGReader.
 - Indexes: `filename` (unique), `index`, `time_start/time_end`, `bbox` (2dsphere), `asset_id`.
 
-CesiumJS Visualization Options
+CesiumJS Visualisation Options
 ------------------------------
 - Direct COG imagery: serve via HTTPS with range requests; use `UrlTemplateImageryProvider` or `SingleTileImageryProvider` for small rasters.
 - Tiled imagery: generate XYZ/WMTS from COG (rio-cogeo, titiler) for performant zooming; best balance for large rasters.
@@ -71,7 +71,7 @@ API Sketch (Implemented)
 
 Frontend (CesiumJS) - Implemented Demo
 ---------------------------------------
-**Demo**: `app/demo/climate_tiles_viewer.html` - Interactive PPET visualization with polygon queries.
+**Demo**: `app/demo/climate_tiles_viewer.html` - Interactive PPET visualisation with polygon queries.
 
 **Features**:
 - **Time slice selector**: Switch between 3 time periods (1981-2010, 2041-2070, 2071-2100) with auto-requery of drawn polygons.

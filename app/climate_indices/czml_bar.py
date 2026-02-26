@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from typing import Any
 
 import numpy as np
 
 from app.climate_indices.models import PolygonSelectionRecord, CZMLExportOptions
-from app.climate_indices.czml_description import build_description_html
+from app.climate_indices.czml_description import build_description_html, PeriodStats
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
 
@@ -15,8 +16,15 @@ logger = get_logger(__name__)
 
 
 def _build_sampled_bar_height(stats_group: list, options: CZMLExportOptions) -> dict:
-    """Build a sampled cylinder length property for interpolation mode."""
+    """
+    Build a sampled cylinder length property for interpolation mode.
+    
+    Adds samples at both period start AND end to hold value constant within each period,
+    plus a far-future sample to keep the last value visible.
+    """
     samples = []
+    last_height = 0
+    
     for stat in stats_group:
         if not stat.time_range or not stat.time_range.start:
             continue
@@ -25,11 +33,23 @@ def _build_sampled_bar_height(stats_group: list, options: CZMLExportOptions) -> 
             continue
         
         height = value * options.bar_height_multiplier
-        iso_time = stat.time_range.start.isoformat()
-        samples.extend([iso_time, height])
+        last_height = height
+        
+        # Add sample at period START
+        iso_start = stat.time_range.start.isoformat()
+        samples.extend([iso_start, height])
+        
+        # Add sample at period END (minus 1 day) with same value
+        if stat.time_range.end:
+            end_time = stat.time_range.end - timedelta(days=1)
+            iso_end = end_time.isoformat()
+            samples.extend([iso_end, height])
     
     if not samples:
         return {"number": 0}
+    
+    # Add far-future sample to keep last value visible
+    samples.extend(["2200-01-01T00:00:00Z", last_height])
     
     return {
         "number": samples,
@@ -44,8 +64,14 @@ def _build_sampled_bar_colour(
     vmin: float,
     vmax: float
 ) -> dict:
-    """Build a sampled colour property for bar interpolation mode."""
+    """
+    Build a sampled colour property for bar interpolation mode.
+    
+    Adds samples at both period start AND end to hold colour constant within each period,
+    plus a far-future sample to keep the last colour visible.
+    """
     samples = []
+    last_rgba = (128, 128, 128, 255)
     
     for stat in stats_group:
         if not stat.time_range or not stat.time_range.start:
@@ -57,11 +83,23 @@ def _build_sampled_bar_colour(
         r, g, b, a = colourmap_interpret(
             vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
         )
-        iso_time = stat.time_range.start.isoformat()
-        samples.extend([iso_time, r, g, b, a])
+        last_rgba = (r, g, b, a)
+        
+        # Add sample at period START
+        iso_start = stat.time_range.start.isoformat()
+        samples.extend([iso_start, r, g, b, a])
+        
+        # Add sample at period END (minus 1 day) with same colour
+        if stat.time_range.end:
+            end_time = stat.time_range.end - timedelta(days=1)
+            iso_end = end_time.isoformat()
+            samples.extend([iso_end, r, g, b, a])
     
     if not samples:
         return {"rgba": [128, 128, 128, 255]}
+    
+    # Add far-future sample to keep last colour visible
+    samples.extend(["2200-01-01T00:00:00Z", last_rgba[0], last_rgba[1], last_rgba[2], last_rgba[3]])
     
     return {
         "rgba": samples,
@@ -75,83 +113,119 @@ def export_bar_czml(
     options: CZMLExportOptions,
     vmin: float,
     vmax: float,
-    centroid: dict[str, float],
-    grouped_stats: dict[str, list]
+    index_type_filter: str | None = None
 ) -> list[dict[str, Any]]:
-    """Export as 3D bar chart using cylinders with temporal animation support."""
+    """
+    Export as 3D bar chart using cylinders - ONE BAR PER POLYGON.
     
+    Each polygon gets its own bar positioned at its centroid.
+    Height and colour represent the index value for that polygon.
+    """
     packets = []
+    
+    num_polygons = len(selection.polygons)
+    logger.info(f"Creating bar chart with {num_polygons} bars (one per polygon)")
 
-    # Create one bar per index type with time-varying height and colour
-    num_index_types = len(grouped_stats)
-    radius = 0.01  # degrees (~1km)
-
-    for idx, (index_type, stats_group) in enumerate(grouped_stats.items()):
-        logger.info(f"Creating bar(s) for {index_type} with {len(stats_group)} time periods")
+    for poly_idx, poly in enumerate(selection.polygons):
+        # Use polygon's own centroid for positioning
+        centroid = poly.centroid
+        lon = centroid["lon"]
+        lat = centroid["lat"]
         
-        # Position bars in circle around centroid
-        angle = (2 * np.pi * idx) / max(num_index_types, 1)
-        lon = centroid["lon"] + radius * np.cos(angle)
-        lat = centroid["lat"] + radius * np.sin(angle)
-
+        # Filter statistics by index_type if specified
+        stats_list = [
+            s for s in poly.statistics
+            if not index_type_filter or s.index_type == index_type_filter
+        ]
+        
+        if not stats_list:
+            logger.warning(f"  Polygon {poly_idx}: No statistics found")
+            continue
+        
+        # Group by time for temporal animation
+        stats_list.sort(
+            key=lambda s: s.time_range.start if s.time_range and s.time_range.start else ""
+        )
+        
+        # Determine index_type label and polygon name
+        index_type = stats_list[0].index_type or "unknown"
+        poly_name = f"Poly{poly_idx + 1}"
+        
+        # Calculate dynamic radius with minimum threshold for visibility
+        pixel_count = stats_list[0].count if stats_list else 100
+        calculated_radius = pixel_count * options.bar_radius_multiplier
+        bar_radius = max(calculated_radius, options.bar_minimum_radius)
+        logger.info(
+            f"  {poly_name}: radius={bar_radius:.0f}m "
+            f"(pixels={pixel_count}, calculated={calculated_radius:.0f}, min={options.bar_minimum_radius})"
+        )
+        
         # Check if we have temporal data
         has_temporal = any(
             stat.time_range and stat.time_range.start and stat.time_range.end
-            for stat in stats_group
+            for stat in stats_list
         )
         
         if has_temporal:
-            # Branch based on interpolation mode
+            # Build list of PeriodStats for all periods
+            all_periods = [
+                PeriodStats(
+                    start=s.time_range.start.strftime('%Y-%m-%d'),
+                    end=s.time_range.end.strftime('%Y-%m-%d'),
+                    mean=s.mean,
+                    std=s.std,
+                    min=s.min,
+                    max=s.max,
+                    count=s.count,
+                    units=s.units or ''
+                )
+                for s in stats_list
+                if s.time_range and s.time_range.start and s.time_range.end
+            ]
+            
             if options.interpolation_mode == "interpolation":
                 # Create single entity with sampled (interpolated) properties
-                entity_id = f"{selection.title}_{index_type.replace(' ', '_')}_bar"
+                entity_id = f"{selection.title}_{poly_name.replace(' ', '_')}_bar"
                 
-                # Build sampled properties
-                sampled_height = _build_sampled_bar_height(stats_group, options)
-                sampled_colour = _build_sampled_bar_colour(stats_group, options, vmin, vmax)
+                sampled_height = _build_sampled_bar_height(stats_list, options)
+                sampled_colour = _build_sampled_bar_colour(stats_list, options, vmin, vmax)
                 
-                # Determine availability from first to last period
-                starts = [s.time_range.start for s in stats_group if s.time_range and s.time_range.start]
-                ends = [s.time_range.end for s in stats_group if s.time_range and s.time_range.end]
+                starts = [s.time_range.start for s in stats_list if s.time_range and s.time_range.start]
+                availability = f"{min(starts).isoformat()}/2200-01-01T00:00:00Z" if starts else None
                 
-                availability = None
-                if starts and ends:
-                    availability = f"{min(starts).isoformat()}/{max(ends).isoformat()}"
-                
-                first_stat = stats_group[0] if stats_group else None
-                first_height = getattr(first_stat, options.value_field, 0) * options.bar_height_multiplier if first_stat else 0
-                time_label = first_stat.time_range.start.strftime('%Y-%m-%d') if first_stat and first_stat.time_range and first_stat.time_range.start else None
+                first_stat = stats_list[0]
+                first_height = getattr(first_stat, options.value_field, 0) * options.bar_height_multiplier
                 
                 packet = {
                     "id": entity_id,
-                    "name": f"{index_type} (Interpolated)",
+                    "name": f"{poly_name}",
                     "position": {"cartographicDegrees": [lon, lat, 0]},
                     "cylinder": {
                         "length": sampled_height,
-                        "topRadius": 500,
-                        "bottomRadius": 500,
-                        "material": {
-                            "solidColor": {"color": sampled_colour}
-                        },
+                        "topRadius": bar_radius,
+                        "bottomRadius": bar_radius * 1.2,  # Slightly wider base for stability
+                        "material": {"solidColor": {"color": sampled_colour}},
                         "outline": True,
-                        "outlineColor": {"rgba": [255, 255, 255, 200]}
+                        "outlineColor": {"rgba": [40, 40, 40, 255]},
+                        "outlineWidth": 2,
+                        "shadows": "ENABLED"
                     },
                     "description": build_description_html(
-                        index_type=index_type,
+                        index_type=f"{poly_name} - {index_type}",
                         stat=first_stat,
                         height=first_height,
-                        time_label=f"{time_label} (interpolated)" if time_label else "(interpolated)"
+                        all_periods=all_periods,
+                        is_interpolated=True
                     )
                 }
-                
                 if availability:
                     packet["availability"] = availability
                 
                 packets.append(packet)
-                logger.info(f"  Created interpolated bar entity {entity_id} with {len(stats_group)} samples")
+                logger.info(f"    Created interpolated bar: {entity_id}")
             else:
                 # Step mode: Create SEPARATE entity for EACH time period
-                for period_idx, stat in enumerate(stats_group):
+                for period_idx, stat in enumerate(stats_list):
                     value = getattr(stat, options.value_field)
                     if value is None or not stat.time_range or not stat.time_range.start or not stat.time_range.end:
                         continue
@@ -161,40 +235,41 @@ def export_bar_czml(
                         vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
                     )
                     
-                    entity_id = f"{selection.title}_{index_type.replace(' ', '_')}_bar_{period_idx}"
+                    entity_id = f"{selection.title}_{poly_name.replace(' ', '_')}_bar_{period_idx}"
                     availability = f"{stat.time_range.start.isoformat()}/{stat.time_range.end.isoformat()}"
-                    
-                    time_label = stat.time_range.start.strftime('%Y-%m-%d')
+                    time_start = stat.time_range.start.strftime('%Y-%m-%d')
+                    time_end = stat.time_range.end.strftime('%Y-%m-%d')
                     
                     packet = {
                         "id": entity_id,
-                        "name": f"{index_type} ({time_label})",
+                        "name": f"{poly_name} ({time_start})",
                         "availability": availability,
                         "position": {"cartographicDegrees": [lon, lat, 0]},
                         "cylinder": {
                             "length": height,
-                            "topRadius": 500,
-                            "bottomRadius": 500,
-                            "material": {
-                                "solidColor": {"color": {"rgba": [r, g, b, a]}}
-                            },
+                            "topRadius": bar_radius,
+                            "bottomRadius": bar_radius * 1.2,
+                            "material": {"solidColor": {"color": {"rgba": [r, g, b, a]}}},
                             "outline": True,
-                            "outlineColor": {"rgba": [255, 255, 255, 200]}
+                            "outlineColor": {"rgba": [40, 40, 40, 255]},
+                            "outlineWidth": 2,
+                            "shadows": "ENABLED"
                         },
                         "description": build_description_html(
-                            index_type=index_type,
+                            index_type=f"{poly_name} - {index_type}",
                             stat=stat,
                             height=height,
-                            time_label=time_label
+                            time_start=time_start,
+                            time_end=time_end,
+                            all_periods=all_periods
                         )
                     }
-                    
                     packets.append(packet)
-                    logger.info(f"  Created step bar entity {entity_id} for {availability}: height={height:.0f}m")
+                    logger.info(f"    Created step bar: {entity_id}")
         else:
             # No temporal data - create single static entity
-            entity_id = f"{selection.title}_{index_type.replace(' ', '_')}_bar"
-            first_stat = stats_group[0]
+            entity_id = f"{selection.title}_{poly_name.replace(' ', '_')}_bar"
+            first_stat = stats_list[0]
             value = getattr(first_stat, options.value_field)
             
             if value is not None:
@@ -205,26 +280,25 @@ def export_bar_czml(
                 
                 packet = {
                     "id": entity_id,
-                    "name": index_type,
+                    "name": poly_name,
                     "position": {"cartographicDegrees": [lon, lat, 0]},
                     "cylinder": {
                         "length": height,
-                        "topRadius": 500,
-                        "bottomRadius": 500,
-                        "material": {
-                            "solidColor": {"color": {"rgba": [r, g, b, a]}}
-                        },
+                        "topRadius": bar_radius,
+                        "bottomRadius": bar_radius * 1.2,
+                        "material": {"solidColor": {"color": {"rgba": [r, g, b, a]}}},
                         "outline": True,
-                        "outlineColor": {"rgba": [255, 255, 255, 200]}
+                        "outlineColor": {"rgba": [40, 40, 40, 255]},
+                        "outlineWidth": 2,
+                        "shadows": "ENABLED"
                     },
                     "description": build_description_html(
-                        index_type=index_type,
+                        index_type=f"{poly_name} - {index_type}",
                         stat=first_stat,
                         height=height
                     )
                 }
-                
                 packets.append(packet)
-                logger.info(f"  Created static entity {entity_id}: height={height:.0f}m")
+                logger.info(f"    Created static bar: {entity_id}")
 
     return packets
