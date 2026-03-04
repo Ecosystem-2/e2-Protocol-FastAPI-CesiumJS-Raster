@@ -14,6 +14,7 @@ tags_metadata = [
     {"name": "climate_polygons", "description": "Query zonal statistics for polygons"},
     {"name": "climate_selections", "description": "Save and manage polygon selections"},
     {"name": "climate_czml", "description": "Export selections as CZML for Cesium"},
+    {"name": "climate_config", "description": "Frontend configuration endpoints"},
 ]
 
 api_router = APIRouter(prefix="/api")

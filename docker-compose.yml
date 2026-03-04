@@ -30,6 +30,10 @@ services:
       
       # Application settings
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      
+      # Demo frontend configuration
+      DEMO_API_BASE: ${DEMO_API_BASE:-http://localhost:8080/api/climate-indices}
+      CESIUM_ION_TOKEN: ${CESIUM_ION_TOKEN:-}
     volumes:
       # Mount GCS credentials (create this file first!)
       - ./data/gcs_credentials.json:/app/data/gcs_credentials.json:ro

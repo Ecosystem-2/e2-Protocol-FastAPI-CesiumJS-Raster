@@ -303,7 +303,10 @@ function loadCZMLInViewer() {
   container.style.display = 'block';
 
   if (!viewer) {
-    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
+    // Use centralised token from config (loaded by demo3-common.js)
+    if (window.CESIUM_ION_TOKEN) {
+      Cesium.Ion.defaultAccessToken = window.CESIUM_ION_TOKEN;
+    }
     
     viewer = new Cesium.Viewer('cesiumContainer', {
       animation: true,
