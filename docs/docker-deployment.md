@@ -41,6 +41,10 @@ Required settings in `.env`:
 ```bash
 MONGO_URI=mongodb+srv://username:password@cluster.mongodb.net/
 GCS_BUCKET=your-bucket-name
+
+# Demo frontend configuration (optional for local, required for public)
+DEMO_API_BASE=http://localhost:8080/api/climate-indices
+CESIUM_ION_TOKEN=your-cesium-ion-token-here
 ```
 
 ### 3. Start the Service
@@ -60,13 +64,114 @@ docker-compose ps
 
 - **API Documentation**: http://localhost:8080/docs
 - **Alternative Docs**: http://localhost:8080/redoc
-- **Demo Viewer**: http://localhost:8080/demo/climate_tiles_viewer.html
+- **Demo Workflow**: http://localhost:8080/demo/index.html
 
 ### 5. Stop the Service
 
 ```bash
 docker-compose down
 ```
+
+---
+
+## Public/Remote Deployment
+
+When deploying to a public server (not localhost), you must configure the frontend to use your public URL.
+
+### Step-by-Step Configuration
+
+**1. Get your server's public address:**
+```bash
+# Find your public IP
+curl ifconfig.me
+# Example output: xxx.xx.xxx.xx
+```
+
+**2. Update `.env` on the server:**
+```bash
+nano .env
+```
+
+```bash
+# Use your public IP or domain
+DEMO_API_BASE=http://<YOUR_PUBLIC_IP>:8080/api/climate-indices
+
+# Or with a domain name (recommended for production)
+DEMO_API_BASE=https://climate.your-domain.com/api/climate-indices
+
+# Cesium Ion token (get from https://cesium.com/ion/tokens)
+CESIUM_ION_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**3. Restart the container to apply changes:**
+```bash
+docker-compose down
+docker-compose up -d
+```
+
+**4. Test the configuration:**
+```bash
+# From your local machine, verify the config endpoint
+curl http://<YOUR_PUBLIC_IP>:8080/api/climate-indices/config
+```
+
+Expected response:
+```json
+{
+  "api_base": "http://<YOUR_PUBLIC_IP>:8080/api/climate-indices",
+  "cesium_ion_token": "<YOUR_CESIUM_TOKEN>"
+}
+```
+
+### Why is this needed?
+
+| Component | Runs where | URL to use |
+|-----------|-----------|------------|
+| Healthcheck | Inside container | `localhost:8080` ✓ |
+| Frontend JS | User's browser | **Public URL** |
+
+- `DEMO_API_BASE` is fetched by JavaScript running in the user's browser
+- The browser needs the public URL to reach your API
+- `localhost` would refer to the user's own machine, not your server
+
+### Firewall Configuration
+
+Ensure port 8080 is open on your server:
+```bash
+# Ubuntu/Debian with ufw
+sudo ufw allow 8080/tcp
+
+# CentOS/RHEL with firewalld
+sudo firewall-cmd --permanent --add-port=8080/tcp
+sudo firewall-cmd --reload
+```
+---
+### Using a Reverse Proxy (Optional)
+
+For production with HTTPS, use nginx as a reverse proxy:
+
+```nginx
+server {
+    listen 443 ssl;
+    server_name climate.your-domain.com;
+    
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+    
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+Then update `.env`:
+```bash
+DEMO_API_BASE=https://climate.your-domain.com/api/climate-indices
+```
+
+**Note:** The healthcheck URLs in Dockerfile and docker-compose.yml should remain `localhost:8080` - these run inside the container.
 
 
 ---

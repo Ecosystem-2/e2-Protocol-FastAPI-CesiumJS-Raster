@@ -3,10 +3,43 @@
  * Shared state management, API calls, and utilities for polygon selection workflow
  */
 
-// Configuration
-// const API_BASE = window.location.origin + '/api/climate-indices';
-const API_BASE = 'http://localhost:8080/api/climate-indices';
+// ============================================================================
+// Configuration - Centralised settings loaded from backend /config endpoint
+// ============================================================================
+// Default fallbacks (used if config endpoint fails or during initial load)
+let API_BASE = 'http://localhost:8080/api/climate-indices';
+let CESIUM_ION_TOKEN = '';
+
 const STORAGE_PREFIX = 'demo3_workflow_';
+
+/**
+ * Load configuration from backend /config endpoint.
+ * Call this early in page initialisation to ensure config is loaded.
+ * @returns {Promise<{api_base: string, cesium_ion_token: string}>}
+ */
+async function loadConfig() {
+  try {
+    // Use default API_BASE initially to fetch config
+    const configUrl = `${API_BASE}/config`;
+    const response = await fetch(configUrl);
+    if (response.ok) {
+      const config = await response.json();
+      API_BASE = config.api_base || API_BASE;
+      CESIUM_ION_TOKEN = config.cesium_ion_token || CESIUM_ION_TOKEN;
+      // Update window exports
+      window.API_BASE = API_BASE;
+      window.CESIUM_ION_TOKEN = CESIUM_ION_TOKEN;
+      console.log('[Config] Loaded from backend:', { api_base: API_BASE, hasToken: !!CESIUM_ION_TOKEN });
+      return config;
+    }
+  } catch (error) {
+    console.warn('[Config] Failed to load from backend, using defaults:', error.message);
+  }
+  return { api_base: API_BASE, cesium_ion_token: CESIUM_ION_TOKEN };
+}
+
+// Auto-load config on script load (non-blocking)
+loadConfig();
 
 // Workflow State Manager
 const WorkflowState = {
@@ -404,7 +437,10 @@ const UI = {
 const CesiumHelper = {
   // Initialise Cesium viewer
   initViewer(containerId) {
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5N2U0ZGU3NC0zN2M5LTQ0YzUtYmM0Yi0xMzc0MWIzMTEwY2MiLCJpZCI6MjUzMDEyLCJpYXQiOjE3NDkxODgzMDl9.123-example-token';
+    // Use centralised token from config
+    if (window.CESIUM_ION_TOKEN || CESIUM_ION_TOKEN) {
+      Cesium.Ion.defaultAccessToken = window.CESIUM_ION_TOKEN || CESIUM_ION_TOKEN;
+    }
     
     const viewer = new Cesium.Viewer(containerId, {
       baseLayerPicker: true,
@@ -543,3 +579,5 @@ window.UI = UI;
 window.CesiumHelper = CesiumHelper;
 window.Utils = Utils;
 window.API_BASE = API_BASE;
+window.CESIUM_ION_TOKEN = CESIUM_ION_TOKEN;
+window.loadConfig = loadConfig;
