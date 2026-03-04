@@ -184,7 +184,7 @@ uv run python tests/test_polygon_query.py
 - `app/climate_indices/` - Domain layer (service, repository, storage)
 - `app/geotif_converter/` - Raster utilities and conversion tools
 - `app/demo/` - Interactive Cesium workflow demo (upload → tiles → draw → save → export)
-- `tests/` - Test files and test data
+gi- `tests/` - Test files and test data
 
 ### Adding New Dependencies
 

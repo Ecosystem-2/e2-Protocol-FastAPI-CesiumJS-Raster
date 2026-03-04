@@ -46,5 +46,5 @@ async def get_demo_config() -> DemoConfig:
     """Return frontend configuration from environment variables."""
     return DemoConfig(
         api_base=_get_api_base(),
-        cesium_ion_token="^_^",
+        cesium_ion_token=_get_cesium_token(),
     )
