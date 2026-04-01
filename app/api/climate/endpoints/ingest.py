@@ -9,7 +9,7 @@ import os
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
 from app.climate_indices.models import AssetIngestRequest, AssetIngestResult, TimeRange
-from app.climate_indices.service import ingest_upload, persist_climate_index
+from app.climate_indices.service import persist_climate_index
 from app.climate_indices.repository import AssetRepository
 from app.climate_indices.storage import GCSBlobStore
 from app.core.logging import get_logger
@@ -66,51 +66,43 @@ def _initialise_storage() -> Tuple[GCSBlobStore, AssetRepository]:
 
 @router.post(
     "/ingest",
-    response_model=AssetIngestResult,
-    status_code=status.HTTP_201_CREATED,
-    summary="Ingest a GeoTIFF climate index and return metadata only.",
-    description="Uses existing geotif_converter utilities; does not persist yet.",
-)
-async def ingest_climate_index(
-    file: UploadFile = File(...),
-    index_type: str = Form(..., description="Climate index name, e.g., humid-heat-stress."),
-    time_start: Optional[datetime] = Form(None, description="Start timestamp for the asset."),
-    time_end: Optional[datetime] = Form(None, description="End timestamp for the asset."),
-    units: Optional[str] = Form(None, description="Units of the raster values."),
-) -> AssetIngestResult:
-    """Ingest GeoTIFF and return metadata without persisting to storage."""
-    payload = await file.read()
-    _validate_upload(file, payload)
-
-    request = AssetIngestRequest(
-        index_type=index_type,
-        time_range=TimeRange(start=time_start, end=time_end),
-        units=units,
-        filename=file.filename,
-    )
-
-    return ingest_upload(payload, request)
-
-
-@router.post(
-    "/ingest/store",
     response_model=dict,
     status_code=status.HTTP_201_CREATED,
     summary="Ingest and persist a GeoTIFF climate index.",
-    description="Stores the raw GeoTIFF and COG to Google Cloud Storage and records metadata in MongoDB.",
+    description="Stores the raw GeoTIFF and COG to Google Cloud Storage and records metadata in MongoDB. "
+                "If a raster_id is provided and an asset with that raster_id exists, it will be replaced.",
 )
 async def ingest_and_store_climate_index(
     file: UploadFile = File(...),
     index_type: str = Form(..., description="Climate index name, e.g., humid-heat-stress."),
-    time_start: Optional[datetime] = Form(None, description="Start timestamp for the asset."),
-    time_end: Optional[datetime] = Form(None, description="End timestamp for the asset."),
+    time_start: Optional[datetime] = Form(
+        None,
+        description="Start timestamp for the asset.",
+        examples=["2041-01-01T00:00:00Z"],
+    ),
+    time_end: Optional[datetime] = Form(
+        None,
+        description="End timestamp for the asset.",
+        examples=["2070-12-30T23:59:59Z"],
+    ),
     units: Optional[str] = Form(None, description="Units of the raster values."),
+    raster_id: Optional[str] = Form(
+        None,
+        description=(
+            "Frontend-generated UUID for cross-system reference. "
+            "If provided and an asset with this raster_id exists, it will be replaced. "
+            "Format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx (e.g., 550e8400-e29b-41d4-a716-446655440000). "
+            "Generate with: JavaScript `crypto.randomUUID()` or Python `uuid.uuid4()`."
+        ),
+        examples=["550e8400-e29b-41d4-a716-446655440000"],
+    ),
 ) -> dict:
     """Ingest and persist GeoTIFF to storage with metadata in MongoDB."""
     payload = await file.read()
     _validate_upload(file, payload)
 
     request = AssetIngestRequest(
+        raster_id=raster_id,
         index_type=index_type,
         time_range=TimeRange(start=time_start, end=time_end),
         units=units,
@@ -123,6 +115,7 @@ async def ingest_and_store_climate_index(
     response = AssetIngestResult(asset=request, raster=persisted.raster)
     response_dict = response.model_dump()
     response_dict["asset_id"] = persisted.asset_id
+    response_dict["raster_id"] = persisted.raster_id
     response_dict["storage"] = persisted.storage.model_dump()
     response_dict["replaced"] = persisted.replaced
     return response_dict

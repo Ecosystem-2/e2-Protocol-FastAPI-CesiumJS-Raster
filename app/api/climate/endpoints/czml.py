@@ -112,7 +112,8 @@ async def export_selection_czml(
     polygon_outline: bool = Form(True),
     show_labels: bool = Form(True),
     interpolation_mode: str = Form("step", description="step or interpolation"),
-    save_to_db: bool = Form(True, description="Save CZML to database")
+    save_to_db: bool = Form(True, description="Save CZML to database"),
+    czml_id: Optional[str] = Form(None, description="Frontend-generated UUID for cross-system reference"),
 ) -> CZMLExportResponse:
     """
     Export selection as CZML for Cesium visualisation.
@@ -171,6 +172,7 @@ async def export_selection_czml(
     
     if save_to_db:
         czml_record = CZMLRecord(
+            czml_id=czml_id,
             selection_id=selection_id,
             index_type=index_type,
             title=f"{selection.title}_{index_type}_{visualisation_type}",
@@ -213,6 +215,25 @@ async def get_czml_document(czml_id: str) -> dict:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"CZML document not found: {czml_id}"
+        )
+    
+    return record.model_dump(by_alias=True)
+
+
+@router.get(
+    "/czml/by-czml-id/{czml_id}",
+    summary="Get saved CZML document by czml_id (UUID)",
+    description="Retrieve a previously exported CZML document by frontend-generated UUID."
+)
+async def get_czml_by_czml_id(czml_id: str) -> dict:
+    """Fetch a saved CZML document by its frontend-generated czml_id (UUID)."""
+    czml_repo = CZMLRepository()
+    record = czml_repo.get_czml_by_czml_id(czml_id)
+    
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CZML document not found with czml_id: {czml_id}"
         )
     
     return record.model_dump(by_alias=True)

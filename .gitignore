@@ -211,3 +211,4 @@ __marimo__/
 data/
 ~ data/uploads/*
 docs/temp*.md
+.github/prompts/*

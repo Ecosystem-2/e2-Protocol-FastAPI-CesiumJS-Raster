@@ -28,6 +28,12 @@ class CZMLRepository:
 
     def _ensure_indexes(self) -> None:
         """Create indexes for efficient queries."""
+        # Sparse unique index on czml_id (only indexes documents where czml_id exists)
+        self.collection.create_index(
+            [("czml_id", 1)],
+            unique=True,
+            sparse=True
+        )
         # Index on selection_id for lookups
         self.collection.create_index([("selection_id", 1)])
         # Compound index for selection_id + index_type + visualisation_type
@@ -100,6 +106,16 @@ class CZMLRepository:
             return None
 
         doc = self.collection.find_one({"_id": oid})
+        if not doc:
+            return None
+
+        if "_id" in doc:
+            doc["_id"] = str(doc["_id"])
+        return CZMLRecord.model_validate(doc)
+
+    def get_czml_by_czml_id(self, czml_id: str) -> Optional[CZMLRecord]:
+        """Fetch CZML document by frontend-generated czml_id (UUID)."""
+        doc = self.collection.find_one({"czml_id": czml_id})
         if not doc:
             return None
 

@@ -3,10 +3,7 @@ from fastapi import APIRouter
 from app.api.geotif.endpoints import router as geotif_converter_router
 from app.api.climate import router as climate_indices_router
 
-tags_metadata = [
-    {"name": "geotif_converter", "description": "Geotif converter endpoints."},
-    # {"name": "demo", "description": "html demo poc routers."},
-    
+tags_metadata = [  
     # Climate indices - organised by functionality
     {"name": "climate_ingest", "description": "Upload and ingest climate GeoTIFF files"},
     {"name": "climate_tiles", "description": "Serve raster tiles for map visualisation"},
@@ -15,6 +12,8 @@ tags_metadata = [
     {"name": "climate_selections", "description": "Save and manage polygon selections"},
     {"name": "climate_czml", "description": "Export selections as CZML for Cesium"},
     {"name": "climate_config", "description": "Frontend configuration endpoints"},
+
+    {"name": "geotif_converter", "description": "Geotif converter endpoints."},
 ]
 
 api_router = APIRouter(prefix="/api")

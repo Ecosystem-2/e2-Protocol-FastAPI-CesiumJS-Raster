@@ -27,6 +27,23 @@ class AssetRepository:
 
     def __init__(self):
         self.collection = _get_collection()
+        self._ensure_indexes()
+
+    def _ensure_indexes(self) -> None:
+        """Create indexes for efficient queries."""
+        # Sparse unique index on raster_id (only indexes documents where raster_id exists)
+        self.collection.create_index(
+            [("raster_id", 1)],
+            unique=True,
+            sparse=True
+        )
+        # Non-unique index on filename for search (not upsert)
+        self.collection.create_index([("filename", 1)])
+        # Index on index_type for filtering
+        self.collection.create_index([("index_type", 1)])
+        # Index on created_at for sorting
+        self.collection.create_index([("created_at", -1)])
+        logger.debug("Ensured indexes for assets collection")
 
     def insert_asset(self, asset: AssetRecord) -> str:
         doc = asset.model_dump(by_alias=True, exclude_none=True)
@@ -34,39 +51,41 @@ class AssetRepository:
         asset_id = str(result.inserted_id)
         logger.info("Inserted asset %s into MongoDB", asset_id)
         return asset_id
-    
-    def upsert_asset_by_filename(self, asset: AssetRecord) -> tuple[str, bool]:
+
+    def upsert_asset(self, asset: AssetRecord) -> tuple[str, bool]:
         """
-        Insert or update asset by filename.
-        
-        If an asset with the same filename exists, replace it entirely.
-        Otherwise, insert a new asset.
-        
+        Insert or update asset by raster_id.
+
+        If the asset has a raster_id and an asset with the same raster_id exists,
+        replace it entirely. Otherwise, insert a new asset.
+
         Returns:
             tuple[str, bool]: (asset_id, was_replaced)
                 - asset_id: The MongoDB ObjectId as string
                 - was_replaced: True if existing record was replaced, False if newly inserted
         """
         doc = asset.model_dump(by_alias=True, exclude_none=True)
-        
-        # Find existing asset by filename
-        existing = self.collection.find_one({"filename": asset.filename})
-        
+
+        # Only upsert by raster_id if raster_id is provided
+        existing = None
+        if asset.raster_id:
+            existing = self.collection.find_one({"raster_id": asset.raster_id})
+
         if existing:
             # Replace existing document, keeping the same _id
             asset_id = str(existing["_id"])
             doc["_id"] = existing["_id"]  # Preserve original _id
             doc["created_at"] = existing.get("created_at")  # Preserve creation timestamp
             doc["updated_at"] = datetime.now(timezone.utc)  # Update modification timestamp
-            
+
             self.collection.replace_one({"_id": existing["_id"]}, doc)
-            logger.info("Replaced existing asset %s (filename: %s)", asset_id, asset.filename)
+            logger.info("Replaced existing asset %s (raster_id: %s)", asset_id, asset.raster_id)
             return asset_id, True
         else:
             # Insert new document
             result = self.collection.insert_one(doc)
             asset_id = str(result.inserted_id)
-            logger.info("Inserted new asset %s (filename: %s)", asset_id, asset.filename)
+            logger.info("Inserted new asset %s (raster_id: %s, filename: %s)", asset_id, asset.raster_id, asset.filename)
             return asset_id, False
 
     def get_asset(self, asset_id: str) -> Optional[AssetRecord]:
@@ -120,6 +139,15 @@ class AssetRepository:
     def get_asset_by_filename(self, filename: str) -> Optional[AssetRecord]:
         """Get asset by exact filename match."""
         doc = self.collection.find_one({"filename": filename})
+        if not doc:
+            return None
+        if "_id" in doc:
+            doc["_id"] = str(doc["_id"])
+        return AssetRecord.model_validate(doc)
+
+    def get_asset_by_raster_id(self, raster_id: str) -> Optional[AssetRecord]:
+        """Get asset by frontend-generated raster_id (UUID)."""
+        doc = self.collection.find_one({"raster_id": raster_id})
         if not doc:
             return None
         if "_id" in doc:

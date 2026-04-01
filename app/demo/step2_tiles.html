@@ -372,6 +372,7 @@
       const scaleMax = scaleMaxInput !== '' ? parseFloat(scaleMaxInput) : config.scale_max;
       
       const tileUrl = `${API_BASE}/tiles/${currentSlice.assetId}/{z}/{x}/{y}.png?colormap_name=${colourmap}&scale_min=${scaleMin}&scale_max=${scaleMax}`;
+      console.log('[Tiles] Loading tile URL:', tileUrl);
 
       // Add new layer with bounds from asset metadata
       const rect = currentSlice.rect || SEGAMA_RECT;

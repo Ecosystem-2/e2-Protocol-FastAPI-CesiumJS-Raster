@@ -80,9 +80,9 @@ class TestAssetRepository:
     def test_repository_init(self):
         """Test AssetRepository initialisation."""
         pytest.skip("Requires MongoDB connection")
-    
-    def test_upsert_by_filename(self):
-        """Test upsert_asset_by_filename logic."""
+
+    def test_upsert_by_uuid(self):
+        """Test upsert_asset logic with UUID."""
         pytest.skip("Requires MongoDB connection")
 
 

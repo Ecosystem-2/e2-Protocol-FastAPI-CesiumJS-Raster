@@ -28,12 +28,14 @@ class SelectionRepository:
 
     def _ensure_indexes(self) -> None:
         """Create indexes for efficient queries."""
-        # Unique index on title (case-insensitive)
+        # Sparse unique index on selection_id (only indexes documents where selection_id exists)
         self.collection.create_index(
-            [("title", 1)],
+            [("selection_id", 1)],
             unique=True,
-            collation={"locale": "en", "strength": 2}
+            sparse=True
         )
+        # Non-unique index on title for search (allows duplicate titles)
+        self.collection.create_index([("title", 1)])
         # Index on tags for filtering
         self.collection.create_index([("tags", 1)])
         # Index on created_at for sorting
@@ -45,12 +47,10 @@ class SelectionRepository:
         record: PolygonSelectionRecord
     ) -> tuple[str, bool]:
         """
-        Insert or update selection by name.
+        Insert or update selection by selection_id.
 
-        If a selection with the same name exists, replace it entirely.
-        Otherwise, insert a new selection.
-
-        Similar to asset upsert strategy - prevents duplicate names.
+        If the record has a selection_id and a selection with the same selection_id exists,
+        replace it entirely. Otherwise, insert a new selection.
 
         Returns:
             tuple[str, bool]: (selection_id, was_replaced)
@@ -60,29 +60,28 @@ class SelectionRepository:
         doc = record.model_dump(by_alias=True, exclude={"id"})
         doc["updated_at"] = datetime.now(timezone.utc)
 
-        # Find existing selection by title (case-insensitive)
-        existing = self.collection.find_one(
-            {"title": record.title},
-            collation={"locale": "en", "strength": 2}
-        )
+        # Only upsert by selection_id if selection_id is provided
+        existing = None
+        if record.selection_id:
+            existing = self.collection.find_one({"selection_id": record.selection_id})
 
         if existing:
             # Replace existing document, keeping the same _id
-            selection_id = str(existing["_id"])
+            mongo_id = str(existing["_id"])
             doc["_id"] = existing["_id"]  # Preserve original _id
             doc["created_at"] = existing.get("created_at", datetime.now(timezone.utc))  # Preserve creation timestamp
 
             self.collection.replace_one({"_id": existing["_id"]}, doc)
-            logger.info("Replaced existing selection %s (title: %s)", selection_id, record.title)
-            return selection_id, True
+            logger.info("Replaced existing selection %s (selection_id: %s)", mongo_id, record.selection_id)
+            return mongo_id, True
         else:
             # Insert new document
             if "created_at" not in doc:
                 doc["created_at"] = datetime.now(timezone.utc)
             result = self.collection.insert_one(doc)
-            selection_id = str(result.inserted_id)
-            logger.info("Inserted new selection %s (title: %s)", selection_id, record.title)
-            return selection_id, False
+            mongo_id = str(result.inserted_id)
+            logger.info("Inserted new selection %s (selection_id: %s, title: %s)", mongo_id, record.selection_id, record.title)
+            return mongo_id, False
 
     def get_selection(self, selection_id: str) -> Optional[PolygonSelectionRecord]:
         """Fetch selection by MongoDB ObjectId."""
@@ -107,6 +106,16 @@ class SelectionRepository:
             {"title": name},
             collation={"locale": "en", "strength": 2}
         )
+        if not doc:
+            return None
+
+        if "_id" in doc:
+            doc["_id"] = str(doc["_id"])
+        return PolygonSelectionRecord.model_validate(doc)
+
+    def get_selection_by_selection_id(self, selection_id: str) -> Optional[PolygonSelectionRecord]:
+        """Fetch selection by frontend-generated selection_id (UUID)."""
+        doc = self.collection.find_one({"selection_id": selection_id})
         if not doc:
             return None
 

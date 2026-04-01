@@ -8,16 +8,15 @@
 
 1. **`app/climate_indices/`** - Domain layer for climate asset management
    - `service.py`: Orchestrates ingestion (`ingest_upload`, `persist_climate_index`)
-   - `repository.py`: MongoDB data access (`AssetRepository` with upsert-by-filename)
+   - `repository.py`: MongoDB data access (`AssetRepository` with upsert-by-raster_id)
    - `storage.py`: GCS blob storage (`GCSBlobStore`)
    - `models.py`: Pydantic models (`AssetRecord`, `AssetIngestRequest`, `RasterSummary`)
 
 2. **`app/api/climate/endpoints.py`** - REST API endpoints
-   - `/ingest`: Parse GeoTIFF metadata without persisting
-   - `/ingest/store`: Upload + persist to GCS + MongoDB (upserts by filename)
+   - `/ingest`: Upload + persist to GCS + MongoDB (upserts by raster_id)
    - `/tiles/{asset_id}/{z}/{x}/{y}.png`: Serve PNG tiles via rio-tiler
    - `/query/polygon`: Compute zonal statistics (Form data, not JSON)
-   - `/assets`, `/assets/search`, `/assets/by-filename/{filename}`: Asset discovery
+   - `/assets`, `/assets/search`, `/assets/by-filename/{filename}`, `/assets/by-raster-id/{raster_id}`: Asset discovery
 
 3. **`app/geotif_converter/`** - Shared raster utilities
    - `raster_io.py`: `read_geotiff()`, `get_raster_metadata()` (always converts to EPSG:4326)
@@ -57,11 +56,16 @@ tile = ImageData(array=np.expand_dims(arr_rescaled, axis=0), alpha_mask=alpha_ma
 ```
 
 ### 3. Asset Upsert Strategy
-Re-uploading the same filename **replaces** the existing MongoDB record while preserving `_id` and `created_at`:
+Re-uploading with the same **raster_id** replaces the existing MongoDB record while preserving `_id` and `created_at`:
 ```python
-asset_id, was_replaced = repo.upsert_asset_by_filename(record)
+asset_id, was_replaced = repo.upsert_asset(record)
 ```
-This prevents duplicate filenames and keeps asset IDs stable across re-uploads.
+If no raster_id is provided, a new record is always created. This allows the frontend to control when replacements occur.
+
+**UUID Field Naming**:
+- Assets: `raster_id` — frontend-generated UUID for rasters
+- Selections: `selection_id` — frontend-generated UUID for polygon selections
+- CZML: `czml_id` — frontend-generated UUID for CZML documents
 
 ### 4. Form Data vs JSON
 - `/ingest*` endpoints: `Form(...)` parameters (multipart file uploads)

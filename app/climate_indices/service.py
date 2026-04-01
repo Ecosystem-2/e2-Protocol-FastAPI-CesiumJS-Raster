@@ -54,9 +54,9 @@ def persist_climate_index(
 ) -> AssetPersistenceResult:
     """
     Persist an uploaded GeoTIFF: store blob, record metadata in Mongo, and return identifiers.
-    
-    If an asset with the same filename already exists in MongoDB, it will be replaced
-    with the new data, preserving the original asset ID and creation timestamp.
+
+    If the request includes a raster_id and an asset with the same raster_id exists,
+    it will be replaced. Otherwise, a new asset is created.
     """
     ingest = ingest_upload(payload, request)
 
@@ -79,6 +79,7 @@ def persist_climate_index(
     )
 
     record = AssetRecord(
+        raster_id=request.raster_id,
         index_type=request.index_type,
         time_range=request.time_range,
         units=request.units,
@@ -87,15 +88,16 @@ def persist_climate_index(
         raster=ingest.raster,
     )
 
-    # Use upsert to replace existing record if filename matches
-    asset_id, was_replaced = repo.upsert_asset_by_filename(record)
-    
+    # Use upsert to replace existing record if raster_id matches
+    asset_id, was_replaced = repo.upsert_asset(record)
+
     if was_replaced:
-        logger.info("Replaced existing asset %s with filename %s", asset_id, request.filename)
-    
+        logger.info("Replaced existing asset %s with raster_id %s", asset_id, request.raster_id)
+
     return AssetPersistenceResult(
         asset=request,
         asset_id=asset_id,
+        raster_id=request.raster_id,
         storage=storage,
         raster=ingest.raster,
         replaced=was_replaced

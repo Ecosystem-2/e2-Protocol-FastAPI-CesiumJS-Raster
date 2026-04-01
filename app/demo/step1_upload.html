@@ -60,7 +60,7 @@
 
       <div class="endpoint-badge">
         <span class="method post">POST</span>
-        <span>/api/climate-indices/ingest/store</span>
+        <span>/api/climate-indices/ingest</span>
       </div>
 
       <!-- API Code Examples -->
@@ -94,7 +94,7 @@ formData.append('scenario', 'ssp245');
 formData.append('model', 'ensemble');
 formData.append('notes', 'Historic baseline data');
 
-const response = await fetch('/api/climate-indices/ingest/store', {
+const response = await fetch('/api/climate-indices/ingest', {
   method: 'POST',
   body: formData
 });
@@ -119,7 +119,7 @@ with open('climate_data.tif', 'rb') as f:
     }
     
     response = requests.post(
-        'http://localhost:8080/api/climate-indices/ingest/store',
+        'http://localhost:8080/api/climate-indices/ingest',
         files=files,
         data=data
     )
@@ -129,7 +129,7 @@ with open('climate_data.tif', 'rb') as f:
           <div style="margin-top: 15px;">
             <strong style="color: #94a3b8;">cURL:</strong>
             <pre style="background: #0f172a; padding: 10px; border-radius: 4px; margin-top: 8px; overflow-x: auto; font-size: 11px; color: #e2e8f0;">
-curl -X POST http://localhost:8080/api/climate-indices/ingest/store \
+curl -X POST http://localhost:8080/api/climate-indices/ingest \
   -F "file=@climate_data.tif" \
   -F "index_type=ppet" \
   -F "time_start=2041-01-01T00:00" \

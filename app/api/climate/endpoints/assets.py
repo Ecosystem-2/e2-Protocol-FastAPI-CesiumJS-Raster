@@ -79,6 +79,24 @@ async def get_asset_by_filename(filename: str) -> dict:
 
 
 @router.get(
+    "/assets/by-raster-id/{raster_id}",
+    summary="Get asset by frontend-generated raster_id (UUID).",
+    description="Retrieve asset metadata using the frontend-generated UUID for cross-system reference.",
+)
+async def get_asset_by_raster_id(raster_id: str) -> dict:
+    """Get asset by frontend-generated raster_id (UUID)."""
+    repo = AssetRepository()
+    asset = repo.get_asset_by_raster_id(raster_id)
+    if not asset:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Asset with raster_id '{raster_id}' not found."
+        )
+    
+    return asset.model_dump()
+
+
+@router.get(
     "/assets/{asset_id}",
     summary="Get details for a specific asset by ID.",
     description="Retrieve full metadata for an asset by its MongoDB ObjectId.",

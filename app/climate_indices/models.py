@@ -16,6 +16,7 @@ class AssetIngestRequest(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
+    raster_id: Optional[str] = Field(default=None, description="Frontend-generated UUID for cross-system reference.")
     index_type: str = Field(..., description="Climate index name, e.g., humid-heat-stress.")
     time_range: Optional[TimeRange] = Field(default=None, description="Time coverage for the asset.")
     units: Optional[str] = Field(default=None, description="Units of the raster values.")
@@ -103,6 +104,7 @@ class AssetRecord(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
     id: Optional[str] = Field(default=None, alias="_id")
+    raster_id: Optional[str] = Field(default=None, description="Frontend-generated UUID for cross-system reference.")
     index_type: str
     time_range: Optional[TimeRange] = None
     units: Optional[str] = None
@@ -115,6 +117,7 @@ class AssetRecord(BaseModel):
 class AssetPersistenceResult(BaseModel):
     asset: AssetIngestRequest
     asset_id: str
+    raster_id: Optional[str] = Field(default=None, description="Frontend-generated UUID if provided.")
     storage: AssetStorage
     raster: RasterSummary
     replaced: bool = Field(default=False, description="True if an existing asset was replaced")
@@ -175,6 +178,7 @@ class PolygonSelectionRecord(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
     id: Optional[str] = Field(default=None, alias="_id")
+    selection_id: Optional[str] = Field(default=None, description="Frontend-generated UUID for cross-system reference.")
 
     # Site identifiers
     locale_id: Optional[str] = Field(default=None, description="Locale UUID for grouping selections")
@@ -280,6 +284,7 @@ class CZMLRecord(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
     id: Optional[str] = Field(default=None, alias="_id")
+    czml_id: Optional[str] = Field(default=None, description="Frontend-generated UUID for cross-system reference.")
     
     selection_id: str = Field(
         ...,

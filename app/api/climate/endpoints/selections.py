@@ -121,6 +121,7 @@ async def save_selection(
     locale_id: Optional[str] = Form(None, description="Locale UUID for grouping selections"),
     site_id: Optional[str] = Form(None, description="Site UUID (auto-generated if not provided)"),
     user_id: Optional[str] = Form(None, description="User UUID"),
+    selection_id: Optional[str] = Form(None, description="Frontend-generated UUID for cross-system reference"),
 ) -> JSONResponse:
     """
     Save polygon selection to polygon_selections collection.
@@ -161,6 +162,7 @@ async def save_selection(
 
     # Build and save PolygonSelectionRecord
     record = PolygonSelectionRecord(
+        selection_id=selection_id,
         locale_id=locale_id,
         site_id=site_id,
         title=title,
@@ -261,6 +263,25 @@ async def get_selection(selection_id: str) -> JSONResponse:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Selection not found: {selection_id}"
+        )
+
+    return JSONResponse(content=selection.model_dump(by_alias=True, mode='json'))
+
+
+@router.get(
+    "/selections/by-selection-id/{selection_id}",
+    summary="Retrieve selection by selection_id (UUID)",
+    description="Fetch full selection details by frontend-generated UUID."
+)
+async def get_selection_by_selection_id(selection_id: str) -> JSONResponse:
+    """Retrieve selection by frontend-generated selection_id (UUID)."""
+    repo = SelectionRepository()
+    selection = repo.get_selection_by_selection_id(selection_id)
+
+    if not selection:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Selection not found with selection_id: {selection_id}"
         )
 
     return JSONResponse(content=selection.model_dump(by_alias=True, mode='json'))

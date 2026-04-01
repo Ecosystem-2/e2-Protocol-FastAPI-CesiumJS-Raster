@@ -56,7 +56,7 @@ async function handleUpload() {
     formData.append('time_end', convertToISOString(timeEnd));
     if (units) formData.append('units', units);
 
-    const response = await fetch(`${API_BASE}/ingest/store`, {
+    const response = await fetch(`${API_BASE}/ingest`, {
       method: 'POST',
       body: formData
     });

@@ -100,7 +100,7 @@ const API = {
     formData.append('index_type', indexType);
     formData.append('time_range', timeRange);
     
-    const response = await fetch(`${API_BASE}/ingest/store`, {
+    const response = await fetch(`${API_BASE}/ingest`, {
       method: 'POST',
       body: formData
     });
