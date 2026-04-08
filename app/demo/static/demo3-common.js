@@ -124,13 +124,13 @@ const API = {
     return data.assets || [];
   },
   
-  // Query polygon statistics (single polygon)
+  // Query polygon statistics (single polygon — wraps batch endpoint)
   async queryPolygon(assetId, polygonGeojson) {
     const formData = new FormData();
-    formData.append('asset_id', assetId);
-    formData.append('polygon_geojson', JSON.stringify(polygonGeojson));
+    formData.append('asset_ids', assetId);
+    formData.append('polygons_geojson', JSON.stringify([polygonGeojson]));
     
-    const response = await fetch(`${API_BASE}/query/polygon`, {
+    const response = await fetch(`${API_BASE}/query/polygons/stats`, {
       method: 'POST',
       body: formData
     });
@@ -184,7 +184,7 @@ const API = {
   },
   
   // Save polygon selection
-  async saveSelection(title, description, tags, geometry, stats, assetId) {
+  async saveSelection(title, description, tags, geometry, stats, assetId, { selectionId, userId, projectId } = {}) {
     const formData = new FormData();
     formData.append('title', title);
     formData.append('description', description || '');
@@ -208,6 +208,11 @@ const API = {
       // Single asset ID - convert to comma-separated format
       formData.append('asset_ids', assetId);
     }
+
+    // Optional ownership fields
+    if (selectionId) formData.append('selection_id', selectionId);
+    if (userId) formData.append('user_id', userId);
+    if (projectId) formData.append('project_id', projectId);
     
     const response = await fetch(`${API_BASE}/selections/save`, {
       method: 'POST',
@@ -243,22 +248,6 @@ const API = {
     return data.selections || [];
   },
 
-  // List all saved sites from siteData collection
-  async listSites(localeId = null) {
-    const url = localeId 
-      ? `${API_BASE}/sites?locale_id=${localeId}`
-      : `${API_BASE}/sites`;
-    
-    const response = await fetch(url);
-    
-    if (!response.ok) {
-      throw new Error(`Failed to load sites: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    return data.sites || [];
-  },
-  
   // Get selection by ID
   async getSelection(selectionId) {
     const response = await fetch(`${API_BASE}/selections/${selectionId}`);
@@ -271,8 +260,9 @@ const API = {
   },
   
   // Export selection as CZML
-  async exportCZML(selectionId, visualisationType, colourmapName, valueField) {
+  async exportCZML(selectionId, indexType, visualisationType, colourmapName, valueField) {
     const formData = new FormData();
+    formData.append('index_type', indexType);
     formData.append('visualisation_type', visualisationType);
     formData.append('colourmap_name', colourmapName);
     formData.append('value_field', valueField);
@@ -326,24 +316,6 @@ const API = {
     return await response.json();
   },
 
-  // Export site as CZML (from siteData collection)
-  async exportSiteCZML(siteId, visualisationType, colourmapName, valueField) {
-    const formData = new FormData();
-    formData.append('visualisation_type', visualisationType);
-    formData.append('colourmap_name', colourmapName);
-    formData.append('value_field', valueField);
-    
-    const response = await fetch(`${API_BASE}/sites/${siteId}/export-czml`, {
-      method: 'POST',
-      body: formData
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Export failed: ${response.statusText}`);
-    }
-    
-    return await response.json();
-  }
 };
 
 // UI Helper Functions

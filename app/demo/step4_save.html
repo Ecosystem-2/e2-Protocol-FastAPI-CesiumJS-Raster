@@ -56,7 +56,9 @@ description: "Optional description"  # Optional
 tags: "tag1,tag2"                    # Optional, comma-separated
 locale_id: "uuid-v4"                 # Optional, for grouping
 site_id: "uuid-v4"                   # Optional, auto-generated if not provided
-user_id: "uuid"                      # Optional</pre>
+selection_id: "uuid-v4"              # Optional, frontend-generated UUID for cross-system reference
+user_id: "uuid"                      # Optional, owner UUID
+project_id: "uuid"                   # Optional, project UUID for grouping</pre>
           </div>
 
           <div style="margin-top: 15px;">
@@ -69,6 +71,9 @@ formData.append('tags', 'climate,heat,risk');
 formData.append('geometry', JSON.stringify(polygon));
 formData.append('asset_ids', 'asset-id-1,asset-id-2');
 formData.append('locale_id', 'd35051c9-9444-4367-ae59-e77b9c58f91e');
+formData.append('selection_id', '550e8400-e29b-41d4-a716-446655440000');
+formData.append('user_id', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890');
+formData.append('project_id', 'proj-001');
 
 const response = await fetch('/api/climate-indices/selections/save', {
   method: 'POST',
@@ -88,7 +93,10 @@ data = {
     'tags': 'climate,heat,risk',
     'geometry': json.dumps(polygon),
     'asset_ids': 'asset-id-1,asset-id-2',
-    'locale_id': 'd35051c9-9444-4367-ae59-e77b9c58f91e'
+    'locale_id': 'd35051c9-9444-4367-ae59-e77b9c58f91e',
+    'selection_id': '550e8400-e29b-41d4-a716-446655440000',
+    'user_id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    'project_id': 'proj-001'
 }
 
 response = requests.post(
@@ -153,6 +161,33 @@ response = requests.post(
           <input type="text" id="tags" placeholder="e.g. ppet, historic, segama">
         </div>
 
+        <!-- Ownership fields (pre-filled from Step 1 if available) -->
+        <details style="margin-bottom: 15px; padding: 12px; background: rgba(30, 41, 59, 0.6); border-left: 3px solid #60a5fa; border-radius: 6px;">
+          <summary style="cursor: pointer; font-weight: 600; color: #60a5fa; font-size: 13px;">🆕 Ownership &amp; IDs (optional)</summary>
+          <div style="margin-top: 12px;">
+            <div class="control-group">
+              <label for="selectionId">selection_id (UUID)</label>
+              <div style="display: flex; gap: 8px;">
+                <input type="text" id="selectionId" placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000" style="flex: 1;" />
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('selectionId').value = API.generateUUID()" style="white-space: nowrap; padding: 6px 12px; font-size: 12px;">
+                  🎲 Generate
+                </button>
+              </div>
+              <span class="hint-text">Frontend-generated UUID for cross-system reference</span>
+            </div>
+            <div class="control-group">
+              <label for="userId">user_id</label>
+              <input type="text" id="userId" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
+              <span class="hint-text">Owner user UUID for access control</span>
+            </div>
+            <div class="control-group">
+              <label for="projectId">project_id</label>
+              <input type="text" id="projectId" placeholder="e.g. proj-001" />
+              <span class="hint-text">Project UUID for grouping selections</span>
+            </div>
+          </div>
+        </details>
+
         <button class="btn btn-primary" onclick="saveSelection()">
           💾 Save Selection
         </button>
@@ -184,7 +219,7 @@ response = requests.post(
     </div>
   </div>
 
-  <script src="static/demo3-common.js"></script>
+  <script src="static/demo3-common.js?v=2"></script>
   <script>
     let savedSelection = null;
 
@@ -315,13 +350,18 @@ response = requests.post(
         UI.showStatus(`Saving selection with ${allAssetIds.length} asset(s) and ${polygonCount} polygon(s) to database...`);
 
         // Save ALL polygons (geometry can be single polygon or array of polygons)
+        const selectionId = document.getElementById('selectionId').value.trim();
+        const userId = document.getElementById('userId').value.trim();
+        const projectId = document.getElementById('projectId').value.trim();
+
         const response = await API.saveSelection(
           title,
           description,
           tags,
           geometry, // Pass all polygons
           queryResults, // Full query results with all assets
-          allAssetIds.join(',') // All asset IDs as comma-separated string
+          allAssetIds.join(','), // All asset IDs as comma-separated string
+          { selectionId, userId, projectId }
         );
 
         savedSelection = response;
@@ -353,6 +393,12 @@ response = requests.post(
 
     // Load previous selection if exists
     window.addEventListener('DOMContentLoaded', () => {
+      // Pre-fill ownership from Step 1
+      const cachedUserId = WorkflowState.get('user_id');
+      const cachedProjectId = WorkflowState.get('project_id');
+      if (cachedUserId) document.getElementById('userId').value = cachedUserId;
+      if (cachedProjectId) document.getElementById('projectId').value = cachedProjectId;
+
       const saved = WorkflowState.get('saved_selection');
       if (saved) {
         savedSelection = saved;

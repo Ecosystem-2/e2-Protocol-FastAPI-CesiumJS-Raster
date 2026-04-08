@@ -32,7 +32,17 @@ geotif_service = GeoTiffService(
 
 
 # %% - Get GeoTIFF Metadata
-@router.post("/metadata", name="get_geotif_metadata")
+@router.post(
+    "/metadata",
+    name="get_geotif_metadata",
+    summary="Extract metadata from GeoTIFF files.",
+    description=(
+        "Upload one or more GeoTIFF files and return their raster metadata "
+        "(CRS, bounds, resolution, band info, nodata values). "
+        "Files are reprojected to the target CRS (default EPSG:4326) before extraction. "
+        "Useful for inspecting raster properties before ingestion or downstream processing."
+    ),
+)
 async def get_geotif_metadata(
     files: list[UploadFile] = File(...),
     target_crs: str = DEFAULT_TARGET_CRS,
@@ -58,7 +68,17 @@ async def get_geotif_metadata(
 
 
 # %% - Convert GeoTIFF to CSV
-@router.post("/csv", name="convert_geotifs_to_csv")
+@router.post(
+    "/csv",
+    name="convert_geotifs_to_csv",
+    summary="Convert GeoTIFF raster data to CSV.",
+    description=(
+        "Upload one or more GeoTIFF files and receive a merged CSV with columns: "
+        "x (longitude), y (latitude), and one value column per file (named from filename). "
+        "Files are reprojected to the target CRS (default EPSG:4326). "
+        "Useful for exporting raster pixel values for tabular analysis, charting, or CZML generation pipelines."
+    ),
+)
 async def convert_geotifs_to_csv(
     files: list[UploadFile] = File(...),
     target_crs: str = DEFAULT_TARGET_CRS,

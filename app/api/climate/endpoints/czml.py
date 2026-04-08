@@ -5,13 +5,11 @@ from __future__ import annotations
 import json
 from typing import Optional, List
 
-from fastapi import APIRouter, Form, HTTPException, Query, status
+from fastapi import APIRouter, Form, HTTPException, Path, Query, status
 from fastapi.responses import Response
 from pydantic import BaseModel
 
-from app.climate_indices.models import CZMLExportOptions, CZMLRecord
-from app.climate_indices.selections_repository import SelectionRepository
-from app.climate_indices.czml_repository import CZMLRepository
+from app.climate_indices import CZMLExportOptions, CZMLRecord, SelectionRepository, CZMLRepository
 from app.climate_indices.czml_generate import CZMLExportService
 from app.commons.colours import list_available_colourmaps, get_colourmap_categories
 from app.core.logging import get_logger
@@ -28,7 +26,7 @@ logger = get_logger(__name__)
 class CZMLExportResponse(BaseModel):
     """Response model for CZML export."""
     czml_id: str
-    selection_id: str
+    selection_ref: str  # MongoDB ObjectId of the source selection
     index_type: str
     visualisation_type: str
     packet_count: int
@@ -93,13 +91,13 @@ async def get_colourmaps_by_category() -> ColourmapCategoriesResponse:
 
 
 @router.post(
-    "/selections/{selection_id}/export-czml",
+    "/selections/{id}/export-czml",
     response_model=CZMLExportResponse,
     summary="Export selection as CZML",
     description="Generate CZML visualisation and save to database."
 )
 async def export_selection_czml(
-    selection_id: str,
+    id: str = Path(..., description="MongoDB ObjectId of the selection"),
     index_type: str = Form(..., description="Climate index type (ppet, wbgt, etc.)"),
     visualisation_type: str = Form("polygon", description="bar or polygon"),
     colourmap_name: str = Form("viridis", description="Matplotlib colourmap name"),
@@ -114,6 +112,8 @@ async def export_selection_czml(
     interpolation_mode: str = Form("step", description="step or interpolation"),
     save_to_db: bool = Form(True, description="Save CZML to database"),
     czml_id: Optional[str] = Form(None, description="Frontend-generated UUID for cross-system reference"),
+    user_id: Optional[str] = Form(None, description="Owner user UUID for access control"),
+    project_id: Optional[str] = Form(None, description="Project UUID for grouping CZML documents"),
 ) -> CZMLExportResponse:
     """
     Export selection as CZML for Cesium visualisation.
@@ -126,12 +126,12 @@ async def export_selection_czml(
     """
     # Fetch selection
     selection_repo = SelectionRepository()
-    selection = selection_repo.get_selection(selection_id)
+    selection = selection_repo.get_selection(id)
 
     if not selection:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Selection not found: {selection_id}"
+            detail=f"Selection not found: {id}"
         )
 
     # Build export options
@@ -166,33 +166,40 @@ async def export_selection_czml(
         ) from exc
     czml_document = json.loads(czml_json)
 
+    # Normalise empty strings to None for optional ownership fields
+    czml_id = czml_id.strip() if czml_id else None
+    user_id = user_id.strip() if user_id else None
+    project_id = project_id.strip() if project_id else None
+
     # Save to database if requested
-    czml_id = ""
+    db_czml_id = ""
     replaced = False
     
     if save_to_db:
         czml_record = CZMLRecord(
             czml_id=czml_id,
-            selection_id=selection_id,
+            selection_ref=id,
             index_type=index_type,
             title=f"{selection.title}_{index_type}_{visualisation_type}",
             description=f"CZML export of {selection.title} ({index_type}) as {visualisation_type}",
+            user_id=user_id,
+            project_id=project_id,
             export_options=options,
             czml_document=czml_document,
             packet_count=len(czml_document)
         )
         
         czml_repo = CZMLRepository()
-        czml_id, replaced = czml_repo.save_czml(czml_record)
+        db_czml_id, replaced = czml_repo.save_czml(czml_record)
         
         logger.info(
             "CZML exported: id=%s, selection=%s, index=%s, type=%s, packets=%d, replaced=%s",
-            czml_id, selection_id, index_type, visualisation_type, len(czml_document), replaced
+            db_czml_id, id, index_type, visualisation_type, len(czml_document), replaced
         )
 
     return CZMLExportResponse(
-        czml_id=czml_id,
-        selection_id=selection_id,
+        czml_id=db_czml_id,
+        selection_ref=id,
         index_type=index_type,
         visualisation_type=visualisation_type,
         packet_count=len(czml_document),
@@ -202,19 +209,21 @@ async def export_selection_czml(
 
 
 @router.get(
-    "/czml/{czml_id}",
+    "/czml/{id}",
     summary="Get saved CZML document",
     description="Retrieve a previously exported CZML document by ID."
 )
-async def get_czml_document(czml_id: str) -> dict:
+async def get_czml_document(
+    id: str = Path(..., description="MongoDB ObjectId of the CZML document")
+) -> dict:
     """Fetch a saved CZML document by its ID."""
     czml_repo = CZMLRepository()
-    record = czml_repo.get_czml(czml_id)
+    record = czml_repo.get_czml(id)
     
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"CZML document not found: {czml_id}"
+            detail=f"CZML document not found: {id}"
         )
     
     return record.model_dump(by_alias=True)
@@ -225,7 +234,9 @@ async def get_czml_document(czml_id: str) -> dict:
     summary="Get saved CZML document by czml_id (UUID)",
     description="Retrieve a previously exported CZML document by frontend-generated UUID."
 )
-async def get_czml_by_czml_id(czml_id: str) -> dict:
+async def get_czml_by_czml_id(
+    czml_id: str = Path(..., description="Frontend-generated UUID (czml_id)")
+) -> dict:
     """Fetch a saved CZML document by its frontend-generated czml_id (UUID)."""
     czml_repo = CZMLRepository()
     record = czml_repo.get_czml_by_czml_id(czml_id)
@@ -240,12 +251,12 @@ async def get_czml_by_czml_id(czml_id: str) -> dict:
 
 
 @router.get(
-    "/selections/{selection_id}/czml",
+    "/selections/{id}/czml",
     summary="List CZML documents for selection",
     description="Get all CZML documents generated for a selection."
 )
 async def list_czml_for_selection(
-    selection_id: str,
+    id: str = Path(..., description="MongoDB ObjectId of the selection"),
     index_type: Optional[str] = Query(
         None,
         description="Filter by climate index type: ppet, wbgt, etc."
@@ -257,25 +268,69 @@ async def list_czml_for_selection(
 ) -> List[dict]:
     """List all CZML documents for a selection."""
     czml_repo = CZMLRepository()
-    records = czml_repo.get_czml_by_selection(selection_id, index_type, visualisation_type)
+    records = czml_repo.get_czml_by_selection(id, index_type, visualisation_type)
     
     return [record.model_dump(by_alias=True) for record in records]
 
 
 @router.delete(
-    "/czml/{czml_id}",
+    "/czml/{id}",
     summary="Delete CZML document",
     description="Delete a saved CZML document."
 )
-async def delete_czml_document(czml_id: str) -> dict:
+async def delete_czml_document(
+    id: str = Path(..., description="MongoDB ObjectId of the CZML document")
+) -> dict:
     """Delete a saved CZML document."""
     czml_repo = CZMLRepository()
-    deleted = czml_repo.delete_czml(czml_id)
+    deleted = czml_repo.delete_czml(id)
     
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"CZML document not found: {czml_id}"
+            detail=f"CZML document not found: {id}"
         )
     
-    return {"deleted": True, "czml_id": czml_id}
+    return {"deleted": True, "id": id}
+
+
+@router.put(
+    "/czml/{id}",
+    summary="Update CZML document metadata",
+    description="Update metadata fields for an existing CZML document. Only provided fields are updated. "
+                "This does not regenerate the CZML — use /export-czml for that."
+)
+async def update_czml_document(
+    id: str = Path(..., description="MongoDB ObjectId of the CZML document"),
+    title: Optional[str] = Form(None, description="CZML document title"),
+    description: Optional[str] = Form(None, description="CZML document description"),
+    user_id: Optional[str] = Form(None, description="Owner user UUID"),
+    project_id: Optional[str] = Form(None, description="Project UUID"),
+) -> dict:
+    """Update CZML document metadata fields."""
+    # Check at least one field is provided
+    if all(v is None for v in [title, description, user_id, project_id]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one field (title, description, user_id, project_id) must be provided."
+        )
+
+    czml_repo = CZMLRepository()
+    updated = czml_repo.update_czml_metadata(
+        id,
+        title=title,
+        description=description,
+        user_id=user_id,
+        project_id=project_id,
+    )
+
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"CZML document not found: {id}"
+        )
+
+    return {
+        "message": "CZML document updated successfully",
+        "czml": updated.model_dump(by_alias=True),
+    }

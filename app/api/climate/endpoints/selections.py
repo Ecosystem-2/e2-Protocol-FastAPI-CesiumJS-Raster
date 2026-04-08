@@ -6,17 +6,17 @@ import json
 import uuid
 from typing import Optional
 
-from fastapi import APIRouter, Form, HTTPException, Query, status
+from fastapi import APIRouter, Form, HTTPException, Path, Query, status
 from fastapi.responses import Response, JSONResponse
 
-from app.climate_indices.models import (
+from app.climate_indices import (
     PolygonSelectionRecord,
     PolygonGeometry,
     SelectionStatistics,
     PolygonWithStatistics,
+    AssetRepository,
+    SelectionRepository,
 )
-from app.climate_indices.repository import AssetRepository
-from app.climate_indices.selections_repository import SelectionRepository
 from app.api.climate.query import zonal_stats_from_cog
 from app.core.logging import get_logger
 
@@ -57,6 +57,31 @@ def _parse_polygon(polygon_geojson: str) -> PolygonGeometry | list[PolygonGeomet
         ) from exc
 
 
+def _resolve_asset(asset_id: str, asset_repo: AssetRepository):
+    """
+    Resolve asset by ID, supporting both MongoDB ObjectId and frontend raster_id.
+    
+    Tries MongoDB ObjectId first. If that fails (invalid format or not found),
+    falls back to raster_id lookup.
+    
+    Returns:
+        tuple[AssetRecord | None, str]: (asset, resolved_id)
+            - resolved_id is the MongoDB ObjectId string for storage
+    """
+    # Try MongoDB ObjectId first
+    asset = asset_repo.get_asset(asset_id)
+    if asset:
+        return asset, asset.id
+    
+    # Fall back to raster_id lookup
+    asset = asset_repo.get_asset_by_raster_id(asset_id)
+    if asset:
+        logger.info("Resolved raster_id %s to MongoDB id %s", asset_id, asset.id)
+        return asset, asset.id
+    
+    return None, asset_id
+
+
 def _build_polygon_with_stats(
     polygon_geom: PolygonGeometry,
     asset_ids: list[str],
@@ -71,7 +96,7 @@ def _build_polygon_with_stats(
     polygon_geojson = polygon_geom.model_dump()
     
     for asset_id in asset_ids:
-        asset = asset_repo.get_asset(asset_id)
+        asset, resolved_id = _resolve_asset(asset_id, asset_repo)
         if not asset:
             logger.warning("Asset not found during selection save: %s", asset_id)
             continue
@@ -80,7 +105,7 @@ def _build_polygon_with_stats(
             stats = zonal_stats_from_cog(asset.storage.cog.uri, polygon_geojson)
 
             statistics.append(SelectionStatistics(
-                asset_id=asset_id,
+                asset_ref=resolved_id,  # Always store MongoDB ObjectId
                 index_type=asset.index_type,
                 units=asset.units,
                 count=stats["count"],
@@ -115,12 +140,13 @@ def _build_polygon_with_stats(
 async def save_selection(
     title: str = Form(..., min_length=1, max_length=200),
     geometry: str = Form(..., description="GeoJSON polygon geometry as JSON string (single or array)"),
-    asset_ids: str = Form(..., description="Comma-separated asset IDs to query"),
+    asset_ids: str = Form(..., description="Comma-separated asset IDs (MongoDB ObjectId or raster_id UUID)"),
     description: Optional[str] = Form(None, max_length=2000),
     tags: Optional[str] = Form(None, description="Comma-separated tags"),
     locale_id: Optional[str] = Form(None, description="Locale UUID for grouping selections"),
     site_id: Optional[str] = Form(None, description="Site UUID (auto-generated if not provided)"),
-    user_id: Optional[str] = Form(None, description="User UUID"),
+    user_id: Optional[str] = Form(None, description="Owner user UUID for access control"),
+    project_id: Optional[str] = Form(None, description="Project UUID for grouping selections"),
     selection_id: Optional[str] = Form(None, description="Frontend-generated UUID for cross-system reference"),
 ) -> JSONResponse:
     """
@@ -165,11 +191,12 @@ async def save_selection(
         selection_id=selection_id,
         locale_id=locale_id,
         site_id=site_id,
+        user_id=user_id,
+        project_id=project_id,
         title=title,
         description=description,
         tags=tag_list,
         polygons=polygons_with_stats,
-        created_by=user_id
     )
     
     selection_repo = SelectionRepository()
@@ -235,7 +262,9 @@ async def list_selections(
     summary="Retrieve selection by title",
     description="Fetch full selection details including geometry and statistics."
 )
-async def get_selection_by_name(name: str) -> JSONResponse:
+async def get_selection_by_name(
+    name: str = Path(..., description="Selection title (case-insensitive match)")
+) -> JSONResponse:
     """Retrieve selection by case-insensitive title (endpoint name kept for compatibility)."""
     repo = SelectionRepository()
     selection = repo.get_selection_by_name(name)
@@ -250,19 +279,21 @@ async def get_selection_by_name(name: str) -> JSONResponse:
 
 
 @router.get(
-    "/selections/{selection_id}",
+    "/selections/{id}",
     summary="Retrieve selection by ID",
     description="Fetch full selection details by MongoDB ObjectId."
 )
-async def get_selection(selection_id: str) -> JSONResponse:
+async def get_selection(
+    id: str = Path(..., description="MongoDB ObjectId of the selection")
+) -> JSONResponse:
     """Retrieve selection by ID."""
     repo = SelectionRepository()
-    selection = repo.get_selection(selection_id)
+    selection = repo.get_selection(id)
 
     if not selection:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Selection not found: {selection_id}"
+            detail=f"Selection not found: {id}"
         )
 
     return JSONResponse(content=selection.model_dump(by_alias=True, mode='json'))
@@ -273,7 +304,9 @@ async def get_selection(selection_id: str) -> JSONResponse:
     summary="Retrieve selection by selection_id (UUID)",
     description="Fetch full selection details by frontend-generated UUID."
 )
-async def get_selection_by_selection_id(selection_id: str) -> JSONResponse:
+async def get_selection_by_selection_id(
+    selection_id: str = Path(..., description="Frontend-generated UUID (selection_id)")
+) -> JSONResponse:
     """Retrieve selection by frontend-generated selection_id (UUID)."""
     repo = SelectionRepository()
     selection = repo.get_selection_by_selection_id(selection_id)
@@ -288,19 +321,68 @@ async def get_selection_by_selection_id(selection_id: str) -> JSONResponse:
 
 
 @router.delete(
-    "/selections/{selection_id}",
+    "/selections/{id}",
     summary="Delete selection",
     description="Remove a saved polygon selection permanently."
 )
-async def delete_selection(selection_id: str) -> JSONResponse:
+async def delete_selection(
+    id: str = Path(..., description="MongoDB ObjectId of the selection")
+) -> JSONResponse:
     """Delete selection by ID."""
     repo = SelectionRepository()
-    deleted = repo.delete_selection(selection_id)
+    deleted = repo.delete_selection(id)
 
     if not deleted:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Selection not found: {selection_id}"
+            detail=f"Selection not found: {id}"
         )
 
-    return JSONResponse(content={"message": "Selection deleted", "id": selection_id})
+    return JSONResponse(content={"message": "Selection deleted", "id": id})
+
+
+@router.put(
+    "/selections/{id}",
+    summary="Update selection metadata",
+    description="Update metadata fields for an existing selection. Only provided fields are updated. "
+                "This does not update geometry or statistics — use /selections/save with the same selection_id for that."
+)
+async def update_selection(
+    id: str = Path(..., description="MongoDB ObjectId of the selection"),
+    title: Optional[str] = Form(None, min_length=1, max_length=200, description="Selection title"),
+    description: Optional[str] = Form(None, max_length=2000, description="Selection description"),
+    tags: Optional[str] = Form(None, description="Comma-separated tags (replaces existing tags)"),
+    user_id: Optional[str] = Form(None, description="Owner user UUID"),
+    project_id: Optional[str] = Form(None, description="Project UUID"),
+) -> JSONResponse:
+    """Update selection metadata fields."""
+    # Parse tags
+    tag_list = [t.strip() for t in tags.split(",")] if tags else None
+
+    # Check at least one field is provided
+    if all(v is None for v in [title, description, tag_list, user_id, project_id]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="At least one field (title, description, tags, user_id, project_id) must be provided."
+        )
+
+    repo = SelectionRepository()
+    updated = repo.update_selection_metadata(
+        id,
+        title=title,
+        description=description,
+        tags=tag_list,
+        user_id=user_id,
+        project_id=project_id,
+    )
+
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Selection not found: {id}"
+        )
+
+    return JSONResponse(content={
+        "message": "Selection updated successfully",
+        "selection": updated.model_dump(by_alias=True, mode='json')
+    })

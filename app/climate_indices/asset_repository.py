@@ -1,3 +1,5 @@
+"""MongoDB repository for asset documents."""
+
 from __future__ import annotations
 
 import os
@@ -5,12 +7,10 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from bson import ObjectId  # type: ignore
-from pydantic import BaseModel, Field
 
 from app.core.logging import get_logger
 from app.db.mongo import get_sync_client
-
-from .models import AssetRecord
+from app.climate_indices.models import AssetRecord
 
 logger = get_logger(__name__)
 
@@ -43,6 +43,9 @@ class AssetRepository:
         self.collection.create_index([("index_type", 1)])
         # Index on created_at for sorting
         self.collection.create_index([("created_at", -1)])
+        # Sparse indexes for ownership filtering
+        self.collection.create_index([("user_id", 1)], sparse=True)
+        self.collection.create_index([("project_id", 1)], sparse=True)
         logger.debug("Ensured indexes for assets collection")
 
     def insert_asset(self, asset: AssetRecord) -> str:
@@ -102,20 +105,37 @@ class AssetRepository:
             doc["_id"] = str(doc["_id"])
         return AssetRecord.model_validate(doc)
 
-    def list_assets(self, limit: int = 100, skip: int = 0) -> list[AssetRecord]:
-        """List all assets with pagination."""
-        cursor = self.collection.find().skip(skip).limit(limit).sort("created_at", -1)
+    def list_assets(
+        self,
+        limit: int = 100,
+        skip: int = 0,
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> list[AssetRecord]:
+        """List assets with pagination and optional ownership filtering."""
+        query_filter: dict[str, Any] = {}
+        if user_id:
+            query_filter["user_id"] = user_id
+        if project_id:
+            query_filter["project_id"] = project_id
+
+        cursor = self.collection.find(query_filter).skip(skip).limit(limit).sort("created_at", -1)
         assets = []
         for doc in cursor:
             if "_id" in doc:
                 doc["_id"] = str(doc["_id"])
             assets.append(AssetRecord.model_validate(doc))
-        logger.info("Retrieved %d assets (skip=%d, limit=%d)", len(assets), skip, limit)
+        logger.info("Retrieved %d assets (skip=%d, limit=%d, user_id=%s, project_id=%s)", len(assets), skip, limit, user_id, project_id)
         return assets
 
-    def count_assets(self) -> int:
-        """Count total number of assets in the collection."""
-        return self.collection.count_documents({})
+    def count_assets(self, user_id: Optional[str] = None, project_id: Optional[str] = None) -> int:
+        """Count total number of assets, optionally filtered by ownership."""
+        query_filter: dict[str, Any] = {}
+        if user_id:
+            query_filter["user_id"] = user_id
+        if project_id:
+            query_filter["project_id"] = project_id
+        return self.collection.count_documents(query_filter)
 
     def search_assets(self, query: str, limit: int = 20) -> list[AssetRecord]:
         """Search assets by filename, index_type, or units using fuzzy matching."""
@@ -153,3 +173,68 @@ class AssetRepository:
         if "_id" in doc:
             doc["_id"] = str(doc["_id"])
         return AssetRecord.model_validate(doc)
+
+    def delete_asset(self, asset_id: str) -> bool:
+        """Delete asset by MongoDB ObjectId. Returns True if deleted."""
+        try:
+            oid = ObjectId(asset_id)
+        except Exception:
+            logger.warning("Invalid asset_id provided for deletion: %s", asset_id)
+            return False
+
+        result = self.collection.delete_one({"_id": oid})
+        deleted = result.deleted_count > 0
+
+        if deleted:
+            logger.info("Deleted asset %s from MongoDB", asset_id)
+        else:
+            logger.warning("Asset not found for deletion: %s", asset_id)
+
+        return deleted
+
+    def update_asset_metadata(
+        self,
+        asset_id: str,
+        *,
+        index_type: Optional[str] = None,
+        units: Optional[str] = None,
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> Optional[AssetRecord]:
+        """
+        Update asset metadata fields (not file replacement).
+
+        Only provided fields are updated; None values are ignored.
+        Returns the updated asset, or None if not found.
+        """
+        try:
+            oid = ObjectId(asset_id)
+        except Exception:
+            logger.warning("Invalid asset_id provided for update: %s", asset_id)
+            return None
+
+        update_fields: dict[str, Any] = {
+            "updated_at": datetime.now(timezone.utc)
+        }
+
+        if index_type is not None:
+            update_fields["index_type"] = index_type
+        if units is not None:
+            update_fields["units"] = units
+        if user_id is not None:
+            update_fields["user_id"] = user_id
+        if project_id is not None:
+            update_fields["project_id"] = project_id
+
+        if len(update_fields) == 1:  # Only updated_at
+            logger.warning("No fields to update for asset %s", asset_id)
+            return self.get_asset(asset_id)
+
+        result = self.collection.update_one({"_id": oid}, {"$set": update_fields})
+
+        if result.matched_count == 0:
+            logger.warning("Asset not found for update: %s", asset_id)
+            return None
+
+        logger.info("Updated asset %s: %s", asset_id, list(update_fields.keys()))
+        return self.get_asset(asset_id)

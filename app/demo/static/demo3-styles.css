@@ -411,6 +411,10 @@ body {
   color: var(--workflow-danger);
 }
 
+.endpoint-badge .method.put {
+  color: var(--workflow-warning);
+}
+
 /* Cesium Viewer Integration */
 #cesiumContainer {
   width: 100%;

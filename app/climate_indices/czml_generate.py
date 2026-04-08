@@ -49,7 +49,7 @@ class CZMLExportService:
         # Sort each group by time_range start if available
         for index_type in grouped:
             grouped[index_type].sort(
-                key=lambda s: s.time_range.start if s.time_range and s.time_range.start else s.asset_id
+                key=lambda s: s.time_range.start if s.time_range and s.time_range.start else s.asset_ref
             )
         
         logger.info(f"Grouped statistics from {len(polygons_with_stats)} polygons into {len(grouped)} index types")

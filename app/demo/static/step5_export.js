@@ -8,6 +8,12 @@ UI.updateStepProgress(5);
 loadSelections();
 loadColourmaps();
 
+// Pre-fill ownership from Step 1
+const _cachedUserId = WorkflowState.get('user_id');
+const _cachedProjectId = WorkflowState.get('project_id');
+if (_cachedUserId) document.getElementById('userId').value = _cachedUserId;
+if (_cachedProjectId) document.getElementById('projectId').value = _cachedProjectId;
+
 /**
  * Load available colourmaps from API and populate dropdown.
  * Groups colourmaps by category with optgroups.
@@ -235,6 +241,14 @@ async function exportCZML() {
     interpolation_mode: interpolationMode,
     save_to_db: true
   };
+
+  // Optional ownership fields
+  const czmlId = document.getElementById('czmlId')?.value?.trim();
+  const userId = document.getElementById('userId')?.value?.trim();
+  const projectId = document.getElementById('projectId')?.value?.trim();
+  if (czmlId) exportOptions.czml_id = czmlId;
+  if (userId) exportOptions.user_id = userId;
+  if (projectId) exportOptions.project_id = projectId;
   
   // Add type-specific options
   if (visualisationType === 'polygon') {

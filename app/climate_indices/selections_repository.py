@@ -10,8 +10,7 @@ from bson import ObjectId  # type: ignore
 
 from app.core.logging import get_logger
 from app.db.mongo import get_sync_client
-
-from .models import PolygonSelectionRecord
+from app.climate_indices.models import PolygonSelectionRecord
 
 logger = get_logger(__name__)
 
@@ -40,6 +39,9 @@ class SelectionRepository:
         self.collection.create_index([("tags", 1)])
         # Index on created_at for sorting
         self.collection.create_index([("created_at", -1)])
+        # Sparse indexes for ownership filtering
+        self.collection.create_index([("user_id", 1)], sparse=True)
+        self.collection.create_index([("project_id", 1)], sparse=True)
         logger.debug("Ensured indexes for polygon_selections collection")
 
     def save_selection(
@@ -57,7 +59,7 @@ class SelectionRepository:
                 - selection_id: The MongoDB ObjectId as string
                 - was_replaced: True if existing record was replaced, False if newly inserted
         """
-        doc = record.model_dump(by_alias=True, exclude={"id"})
+        doc = record.model_dump(by_alias=True, exclude={"id"}, exclude_none=True)
         doc["updated_at"] = datetime.now(timezone.utc)
 
         # Only upsert by selection_id if selection_id is provided
@@ -176,3 +178,53 @@ class SelectionRepository:
         if tags:
             query["tags"] = {"$in": tags}
         return self.collection.count_documents(query)
+
+    def update_selection_metadata(
+        self,
+        selection_id: str,
+        *,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        tags: Optional[list[str]] = None,
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> Optional[PolygonSelectionRecord]:
+        """
+        Update selection metadata fields (not geometry or statistics).
+
+        Only provided fields are updated; None values are ignored.
+        Returns the updated selection, or None if not found.
+        """
+        try:
+            oid = ObjectId(selection_id)
+        except Exception:
+            logger.warning("Invalid selection_id provided for update: %s", selection_id)
+            return None
+
+        update_fields: dict = {
+            "updated_at": datetime.now(timezone.utc)
+        }
+
+        if title is not None:
+            update_fields["title"] = title
+        if description is not None:
+            update_fields["description"] = description
+        if tags is not None:
+            update_fields["tags"] = tags
+        if user_id is not None:
+            update_fields["user_id"] = user_id
+        if project_id is not None:
+            update_fields["project_id"] = project_id
+
+        if len(update_fields) == 1:  # Only updated_at
+            logger.warning("No fields to update for selection %s", selection_id)
+            return self.get_selection(selection_id)
+
+        result = self.collection.update_one({"_id": oid}, {"$set": update_fields})
+
+        if result.matched_count == 0:
+            logger.warning("Selection not found for update: %s", selection_id)
+            return None
+
+        logger.info("Updated selection %s: %s", selection_id, list(update_fields.keys()))
+        return self.get_selection(selection_id)

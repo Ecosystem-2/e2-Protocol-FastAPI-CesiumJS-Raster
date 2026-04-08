@@ -10,8 +10,7 @@ from bson import ObjectId  # type: ignore
 
 from app.core.logging import get_logger
 from app.db.mongo import get_sync_client
-
-from .models import CZMLRecord, CZMLExportOptions
+from app.climate_indices.models import CZMLRecord, CZMLExportOptions
 
 logger = get_logger(__name__)
 
@@ -34,16 +33,19 @@ class CZMLRepository:
             unique=True,
             sparse=True
         )
-        # Index on selection_id for lookups
-        self.collection.create_index([("selection_id", 1)])
-        # Compound index for selection_id + index_type + visualisation_type
+        # Index on selection_ref for lookups
+        self.collection.create_index([("selection_ref", 1)])
+        # Compound index for selection_ref + index_type + visualisation_type
         self.collection.create_index([
-            ("selection_id", 1),
+            ("selection_ref", 1),
             ("index_type", 1),
             ("export_options.visualisation_type", 1)
         ])
         # Index on created_at for sorting
         self.collection.create_index([("created_at", -1)])
+        # Sparse indexes for ownership filtering
+        self.collection.create_index([("user_id", 1)], sparse=True)
+        self.collection.create_index([("project_id", 1)], sparse=True)
         logger.debug("Ensured indexes for czml_documents collection")
 
     def save_czml(
@@ -53,7 +55,7 @@ class CZMLRepository:
         """
         Insert or update CZML document.
 
-        If a CZML with the same selection_id, index_type, and visualisation_type
+        If a CZML with the same selection_ref, index_type, and visualisation_type
         exists, replace it. Otherwise, insert a new document.
 
         Returns:
@@ -61,14 +63,14 @@ class CZMLRepository:
                 - czml_id: The MongoDB ObjectId as string
                 - was_replaced: True if existing record was replaced
         """
-        doc = record.model_dump(by_alias=True, exclude={"id"})
+        doc = record.model_dump(by_alias=True, exclude={"id"}, exclude_none=True)
         doc["updated_at"] = datetime.now(timezone.utc)
 
-        # Find existing CZML by selection_id + index_type + visualisation_type
+        # Find existing CZML by selection_ref + index_type + visualisation_type
         vis_type = record.export_options.visualisation_type
         index_type = record.index_type
         existing = self.collection.find_one({
-            "selection_id": record.selection_id,
+            "selection_ref": record.selection_ref,
             "index_type": index_type,
             "export_options.visualisation_type": vis_type
         })
@@ -82,7 +84,7 @@ class CZMLRepository:
             self.collection.replace_one({"_id": existing["_id"]}, doc)
             logger.info(
                 "Replaced existing CZML %s (selection: %s, index: %s, type: %s)",
-                czml_id, record.selection_id, index_type, vis_type
+                czml_id, record.selection_ref, index_type, vis_type
             )
             return czml_id, True
         else:
@@ -93,7 +95,7 @@ class CZMLRepository:
             czml_id = str(result.inserted_id)
             logger.info(
                 "Inserted new CZML %s (selection: %s, index: %s, type: %s)",
-                czml_id, record.selection_id, index_type, vis_type
+                czml_id, record.selection_ref, index_type, vis_type
             )
             return czml_id, False
 
@@ -125,7 +127,7 @@ class CZMLRepository:
 
     def get_czml_by_selection(
         self,
-        selection_id: str,
+        selection_ref: str,
         index_type: Optional[str] = None,
         visualisation_type: Optional[str] = None
     ) -> List[CZMLRecord]:
@@ -133,14 +135,14 @@ class CZMLRepository:
         Fetch all CZML documents for a selection.
 
         Args:
-            selection_id: The selection ObjectId as string
+            selection_ref: The selection MongoDB ObjectId as string
             index_type: Optional filter by climate index (ppet, wbgt, etc.)
             visualisation_type: Optional filter by type (bar, polygon)
 
         Returns:
             List of CZMLRecord documents
         """
-        query = {"selection_id": selection_id}
+        query = {"selection_ref": selection_ref}
         if index_type:
             query["index_type"] = index_type
         if visualisation_type:
@@ -155,7 +157,7 @@ class CZMLRepository:
 
         logger.info(
             "Retrieved %d CZML documents for selection %s (type=%s)",
-            len(results), selection_id, visualisation_type
+            len(results), selection_ref, visualisation_type
         )
         return results
 
@@ -195,12 +197,3 @@ class CZMLRepository:
         else:
             logger.warning("CZML document not found for deletion: %s", czml_id)
         return deleted
-
-    def delete_by_selection(self, selection_id: str) -> int:
-        """Delete all CZML documents for a selection. Returns count deleted."""
-        result = self.collection.delete_many({"selection_id": selection_id})
-        logger.info(
-            "Deleted %d CZML documents for selection: %s",
-            result.deleted_count, selection_id
-        )
-        return result.deleted_count

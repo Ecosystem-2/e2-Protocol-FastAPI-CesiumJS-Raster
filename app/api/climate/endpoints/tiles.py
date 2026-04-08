@@ -5,14 +5,14 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Path, status
 from fastapi.responses import Response
 from rio_tiler.io import COGReader  # type: ignore[attr-defined]
 from rio_tiler.colormap import cmap
 from rio_tiler.errors import TileOutsideBounds
 from rio_tiler.models import ImageData
 
-from app.climate_indices.repository import AssetRepository
+from app.climate_indices import AssetRepository
 from app.core.logging import get_logger
 
 router = APIRouter()
@@ -75,15 +75,15 @@ def _rescale_array(arr: np.ndarray, valid_mask: np.ndarray, vmin: float, vmax: f
 
 
 @router.get(
-    "/tiles/{asset_id}/{z}/{x}/{y}.png",
+    "/tiles/{id}/{z}/{x}/{y}.png",
     summary="Serve a tile for an asset (COG-backed).",
     description="Lightweight tile endpoint using rio-tiler; resolves COG URI from Mongo.",
 )
 async def tile_png(
-    asset_id: str,
-    z: int,
-    x: int,
-    y: int,
+    id: str = Path(..., description="MongoDB ObjectId of the asset"),
+    z: int = Path(..., description="Tile zoom level"),
+    x: int = Path(..., description="Tile x coordinate"),
+    y: int = Path(..., description="Tile y coordinate"),
     colormap_name: str = "viridis",
     scale_min: Optional[float] = None,
     scale_max: Optional[float] = None,
@@ -91,7 +91,7 @@ async def tile_png(
     """Serve a PNG tile for a raster asset with proper transparency and colour mapping."""
     # Fetch asset and validate colourmap
     repo = AssetRepository()
-    asset = repo.get_asset(asset_id)
+    asset = repo.get_asset(id)
     if not asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found.")
 
@@ -132,7 +132,7 @@ async def tile_png(
             content = tile.render(colormap=cmap_def, img_format="PNG")  # type: ignore[call-arg]
             
     except TileOutsideBounds:
-        logger.warning("Tile outside bounds for asset_id=%s, z=%d, x=%d, y=%d", asset_id, z, x, y)
+        logger.warning("Tile outside bounds for id=%s, z=%d, x=%d, y=%d", id, z, x, y)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tile outside bounds")
     except Exception as exc:
         logger.error("Tile render failed: %s", exc)

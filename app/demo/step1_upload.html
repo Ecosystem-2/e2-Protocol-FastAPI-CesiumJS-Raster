@@ -52,10 +52,11 @@
 
     <!-- Main Content -->
     <div class="step-content">
-      <h2 class="step-title">Upload GeoTIFF Asset</h2>
+      <h2 class="step-title">Upload GeoTIFF Assets</h2>
       <p class="step-description">
-        Select a GeoTIFF file containing climate index data (PPET or WBGT). The file will be validated, 
-        converted to EPSG:4326, and stored in Google Cloud Storage with metadata persisted to MongoDB.
+        Select one or more GeoTIFF files containing climate index data (PPET or WBGT). Each file will be 
+        uploaded sequentially, validated, converted to EPSG:4326, and stored in Google Cloud Storage with 
+        metadata persisted to MongoDB.
       </p>
 
       <div class="endpoint-badge">
@@ -78,7 +79,10 @@ time_end: "2070-12-31T23:59"         # Required, ISO datetime
 region: "Segama River"               # Optional
 scenario: "ssp245"                   # Optional (e.g. SSP2-4.5)
 model: "ensemble"                    # Optional, climate model
-notes: "Historic baseline data"      # Optional</pre>
+notes: "Historic baseline data"      # Optional
+raster_id: "550e8400-..."             # Optional, frontend UUID (upserts if same)
+user_id: "a1b2c3d4-..."              # Optional, owner UUID
+project_id: "proj-001"               # Optional, project grouping</pre>
           </div>
 
           <div style="margin-top: 15px;">
@@ -93,6 +97,9 @@ formData.append('region', 'Segama River');
 formData.append('scenario', 'ssp245');
 formData.append('model', 'ensemble');
 formData.append('notes', 'Historic baseline data');
+formData.append('raster_id', crypto.randomUUID());  // optional
+formData.append('user_id', 'a1b2c3d4-e5f6-...');    // optional
+formData.append('project_id', 'proj-001');           // optional
 
 const response = await fetch('/api/climate-indices/ingest', {
   method: 'POST',
@@ -115,7 +122,10 @@ with open('climate_data.tif', 'rb') as f:
         'region': 'Segama River',
         'scenario': 'ssp245',
         'model': 'ensemble',
-        'notes': 'Historic baseline data'
+        'notes': 'Historic baseline data',
+        'raster_id': '550e8400-e29b-41d4-a716-446655440000',  # optional
+        'user_id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',   # optional
+        'project_id': 'proj-001',                             # optional
     }
     
     response = requests.post(
@@ -137,7 +147,10 @@ curl -X POST http://localhost:8080/api/climate-indices/ingest \
   -F "region=Segama River" \
   -F "scenario=ssp245" \
   -F "model=ensemble" \
-  -F "notes=Historic baseline data"</pre>
+  -F "notes=Historic baseline data" \
+  -F "raster_id=550e8400-e29b-41d4-a716-446655440000" \
+  -F "user_id=a1b2c3d4-e5f6-7890-abcd-ef1234567890" \
+  -F "project_id=proj-001"</pre>
           </div>
         </details>
       </div>
@@ -149,17 +162,20 @@ curl -X POST http://localhost:8080/api/climate-indices/ingest \
       <div class="control-panel">
         <div class="control-group">
           <label>
-            GeoTIFF File <span style="color: var(--workflow-danger);">*</span>
+            GeoTIFF Files <span style="color: var(--workflow-danger);">*</span>
           </label>
           <div class="file-input-wrapper">
-            <input type="file" id="fileInput" accept=".tif,.tiff" required />
+            <input type="file" id="fileInput" accept=".tif,.tiff" multiple required />
             <label for="fileInput" class="file-input-label" id="fileLabel">
               <span class="file-icon">📁</span>
-              <span class="file-text">Click to select .tif file</span>
+              <span class="file-text">Click to select .tif files (multiple allowed)</span>
             </label>
           </div>
+          <!-- File queue (shown after selection) -->
+          <div id="fileQueue" class="file-queue" style="display: none;"></div>
         </div>
 
+        <!-- Shared field: Index Type (applies to all files) -->
         <div class="control-group">
           <label for="indexType">
             Index Type <span style="color: var(--workflow-danger);">*</span>
@@ -174,75 +190,92 @@ curl -X POST http://localhost:8080/api/climate-indices/ingest \
           </select>
         </div>
 
-        <div class="control-group">
-          <label for="timeStart">
-            Time Start <span style="color: var(--workflow-danger);">*</span>
-          </label>
-          <input type="datetime-local" id="timeStart" required />
-          <span class="hint-text">Start date of the time range covered by this dataset</span>
+        <!-- ===== Single-file fields (hidden when multiple files selected) ===== -->
+        <div id="singleFileFields">
+          <div class="control-group">
+            <label for="timeStart">
+              Time Start <span style="color: var(--workflow-danger);">*</span>
+            </label>
+            <input type="datetime-local" id="timeStart" required />
+            <span class="hint-text">Start date of the time range covered by this dataset</span>
+          </div>
+
+          <div class="control-group">
+            <label for="timeEnd">
+              Time End <span style="color: var(--workflow-danger);">*</span>
+            </label>
+            <input type="datetime-local" id="timeEnd" required />
+            <span class="hint-text">End date of the time range covered by this dataset</span>
+          </div>
+
+          <div class="control-group">
+            <label for="units">
+              Units
+            </label>
+            <input type="text" id="units" placeholder="e.g., °C, mm, ratio" />
+            <span class="hint-text">Optional: measurement units for the index values</span>
+          </div>
+
+          <div class="control-group">
+            <label for="rasterId">
+              raster_id (UUID)
+            </label>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="rasterId" placeholder="e.g. 550e8400-e29b-41d4-a716-446655440000" style="flex: 1;" />
+              <button type="button" class="btn btn-secondary" onclick="generateRasterId()" style="white-space: nowrap; padding: 6px 12px; font-size: 12px;">
+                🎲 Generate
+              </button>
+            </div>
+            <span class="hint-text">Frontend-generated UUID. Re-uploading with the same raster_id replaces the asset.</span>
+          </div>
         </div>
 
-        <div class="control-group">
-          <label for="timeEnd">
-            Time End <span style="color: var(--workflow-danger);">*</span>
-          </label>
-          <input type="datetime-local" id="timeEnd" required />
-          <span class="hint-text">End date of the time range covered by this dataset</span>
+        <!-- ===== Multi-file note (shown when multiple files selected) ===== -->
+        <div id="multiFileNote" style="display: none; margin: 10px 0; padding: 10px; background: rgba(96, 165, 250, 0.08); border-radius: 6px; border-left: 3px solid #3b82f6;">
+          📋 <strong>Multiple files selected</strong> — each file has its own Time Start, Time End, Units, and raster_id in the file list above.
+          <button type="button" class="btn btn-secondary" style="margin-left: 8px; font-size: 12px; padding: 4px 10px;" onclick="generateAllRasterIds()">
+            🎲 Regenerate All UUIDs
+          </button>
         </div>
 
-        <div class="control-group">
-          <label for="units">
-            Units
-          </label>
-          <input type="text" id="units" placeholder="e.g., °C, mm, ratio" />
-          <span class="hint-text">Optional: measurement units for the index values</span>
-        </div>
+        <!-- Shared ownership fields (always visible) -->
+        <details style="margin-bottom: 15px; padding: 12px; background: rgba(30, 41, 59, 0.6); border-left: 3px solid #60a5fa; border-radius: 6px;">
+          <summary style="cursor: pointer; font-weight: 600; color: #60a5fa; font-size: 13px;">🆕 Ownership (shared across all files)</summary>
+          <div style="margin-top: 12px;">
+            <div class="control-group">
+              <label for="userId">
+                user_id
+              </label>
+              <input type="text" id="userId" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
+              <span class="hint-text">Optional: Owner user UUID for access control</span>
+            </div>
+
+            <div class="control-group">
+              <label for="projectId">
+                project_id
+              </label>
+              <input type="text" id="projectId" placeholder="e.g. proj-001" />
+              <span class="hint-text">Optional: Project UUID for grouping assets</span>
+            </div>
+          </div>
+        </details>
 
         <button type="button" class="btn btn-primary" id="uploadBtn" onclick="handleUpload()">
           📤 Upload & Store
         </button>
       </div>
 
-      <!-- Results Panel -->
-      <div id="resultsPanel" class="results-panel">
-        <h4>API Response</h4>
-        <pre id="resultsContent"></pre>
+      <!-- Upload Progress (shown during multi-file upload) -->
+      <div id="uploadProgress" style="display: none; margin-top: 20px;">
+        <h3 style="color: #60a5fa; margin: 0 0 10px 0;">📤 Upload Progress</h3>
+        <div class="progress-bar-container">
+          <div class="progress-bar" id="uploadProgressBar"></div>
+        </div>
+        <p id="uploadProgressText" style="color: #94a3b8; font-size: 13px; margin-top: 6px;"></p>
       </div>
 
-      <!-- Upload Summary (shown after successful upload) -->
-      <div id="uploadSummary" style="display: none; margin-top: 20px;">
-        <h3 style="color: var(--workflow-success); margin: 0 0 15px 0;">✓ Upload Successful</h3>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <div class="stat-label">Asset ID</div>
-            <div class="stat-value" id="assetIdValue" style="font-size: 14px; word-break: break-all;"></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Filename</div>
-            <div class="stat-value" id="filenameValue" style="font-size: 14px; word-break: break-all;"></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Index Type</div>
-            <div class="stat-value" id="indexTypeValue" style="font-size: 14px;"></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">CRS</div>
-            <div class="stat-value" id="crsValue" style="font-size: 14px;"></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Dimensions</div>
-            <div class="stat-value" id="dimensionsValue" style="font-size: 14px;"></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Time Range</div>
-            <div class="stat-value" id="timeRangeValue" style="font-size: 13px;"></div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">Replaced</div>
-            <div class="stat-value" id="replacedValue" style="font-size: 14px;"></div>
-          </div>
-        </div>
-      </div>
+      <!-- Upload Results (shown after uploads complete) -->
+      <div id="uploadResults" style="display: none; margin-top: 20px;"></div>
     </div>
 
     <!-- Navigation -->

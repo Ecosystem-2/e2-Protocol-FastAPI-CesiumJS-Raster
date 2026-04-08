@@ -44,11 +44,14 @@
         <button class="btn btn-primary" onclick="startWorkflow()" style="font-size: 16px; padding: 14px 32px; margin-right: 10px;">
           🚀 Start from Upload
         </button>
-        <button class="btn btn-secondary" onclick="skipToStep2()" style="font-size: 16px; padding: 14px 32px;">
+        <button class="btn btn-secondary" onclick="skipToStep2()" style="font-size: 16px; padding: 14px 32px; margin-right: 10px;">
           🗺️ Skip to View Tiles
         </button>
+        <button class="btn btn-secondary" onclick="openExplorer()" style="font-size: 16px; padding: 14px 32px; background: #1e3a5f; border-color: #60a5fa;">
+          🔬 API Explorer
+        </button>
         <p style="color: #6b7280; font-size: 13px; margin-top: 10px;">
-          Start from the beginning or jump directly to tile viewer
+          Start from the beginning, jump to tiles, or explore new API features (UUID, ownership, CRUD)
         </p>
       </div>
     </div>
@@ -142,11 +145,15 @@
         </div>
         <div class="endpoint-badge">
           <span class="method">GET</span>
-          <span>/api/climate-indices/tiles/{asset_id}/{z}/{x}/{y}.png</span>
+          <span>/api/climate-indices/assets/by-raster-id/{raster_id}</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method">GET</span>
+          <span>/api/climate-indices/tiles/{id}/{z}/{x}/{y}.png</span>
         </div>
         <div class="endpoint-badge">
           <span class="method post">POST</span>
-          <span>/api/climate-indices/query/polygon</span>
+          <span>/api/climate-indices/query/polygons/stats</span>
         </div>
         <div class="endpoint-badge">
           <span class="method post">POST</span>
@@ -154,11 +161,39 @@
         </div>
         <div class="endpoint-badge">
           <span class="method">GET</span>
-          <span>/api/climate-indices/selections/list</span>
+          <span>/api/climate-indices/selections</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method">GET</span>
+          <span>/api/climate-indices/selections/by-selection-id/{selection_id}</span>
         </div>
         <div class="endpoint-badge">
           <span class="method post">POST</span>
           <span>/api/climate-indices/selections/{id}/export-czml</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method put">PUT</span>
+          <span>/api/climate-indices/assets/{id}</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method delete">DELETE</span>
+          <span>/api/climate-indices/assets/{id}</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method put">PUT</span>
+          <span>/api/climate-indices/selections/{id}</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method delete">DELETE</span>
+          <span>/api/climate-indices/selections/{id}</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method put">PUT</span>
+          <span>/api/climate-indices/czml/{id}</span>
+        </div>
+        <div class="endpoint-badge">
+          <span class="method delete">DELETE</span>
+          <span>/api/climate-indices/czml/{id}</span>
         </div>
       </div>
     </div>
@@ -200,6 +235,10 @@
     
     function skipToStep2() {
       window.location.href = 'step2_tiles.html';
+    }
+
+    function openExplorer() {
+      window.location.href = 'api_explorer.html';
     }
     
     function resetWorkflow() {

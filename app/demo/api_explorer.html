@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Explorer | New Features Demo</title>
+  <link rel="stylesheet" href="static/demo3-styles.css">
+  <style>
+    /* API Explorer Specific Styles */
+    .feature-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .feature-badge.phase1 { background: #1e3a5f; color: #60a5fa; }
+    .feature-badge.phase2 { background: #1a3c34; color: #34d399; }
+    .feature-badge.phase3 { background: #3b2f1a; color: #fbbf24; }
+    .feature-badge.phase4 { background: #3b1a2a; color: #f87171; }
+
+    .demo-section {
+      background: var(--workflow-bg-secondary);
+      border: 1px solid var(--workflow-border);
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .demo-section h3 {
+      margin: 0 0 6px 0;
+      font-size: 16px;
+      color: var(--workflow-text);
+    }
+    .demo-section .section-desc {
+      margin: 0 0 18px 0;
+      font-size: 13px;
+      color: var(--workflow-text-secondary);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: end;
+    }
+    .input-row .input-group {
+      flex: 1;
+    }
+    .input-row label {
+      display: block;
+      font-size: 11px;
+      color: var(--workflow-text-secondary);
+      margin-bottom: 4px;
+      font-weight: 600;
+    }
+    .input-row input, .input-row select {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--workflow-border);
+      background: var(--workflow-bg);
+      color: var(--workflow-text);
+      font-size: 13px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+    .input-row input:focus, .input-row select:focus {
+      outline: none;
+      border-color: var(--workflow-primary);
+    }
+
+    .response-panel {
+      background: #000;
+      border-radius: 6px;
+      padding: 16px;
+      margin-top: 12px;
+      max-height: 400px;
+      overflow: auto;
+      display: none;
+    }
+    .response-panel pre {
+      margin: 0;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 12px;
+      color: #34d399;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .response-panel.error pre {
+      color: #f87171;
+    }
+    .response-panel.visible {
+      display: block;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      align-items: center;
+    }
+    .action-bar .status-text {
+      font-size: 12px;
+      color: var(--workflow-text-secondary);
+    }
+
+    .entity-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .entity-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--workflow-bg);
+      border: 1px solid var(--workflow-border);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .entity-item:hover {
+      border-color: var(--workflow-primary);
+    }
+    .entity-item.selected {
+      border-color: var(--workflow-primary);
+      background: rgba(96, 165, 250, 0.08);
+    }
+    .entity-item .entity-title {
+      font-weight: 600;
+      color: var(--workflow-text);
+    }
+    .entity-item .entity-meta {
+      color: var(--workflow-text-secondary);
+      font-family: monospace;
+      font-size: 11px;
+    }
+    .entity-actions {
+      display: flex;
+      gap: 6px;
+    }
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11px;
+      border-radius: 4px;
+      border: 1px solid var(--workflow-border);
+      background: var(--workflow-bg-secondary);
+      color: var(--workflow-text);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-sm:hover { border-color: var(--workflow-primary); color: var(--workflow-primary); }
+    .btn-sm.danger:hover { border-color: #f87171; color: #f87171; }
+    .btn-sm.success:hover { border-color: #34d399; color: #34d399; }
+
+    .phase-legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+      padding: 12px 16px;
+      background: var(--workflow-bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--workflow-border);
+    }
+    .phase-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--workflow-text-secondary);
+    }
+
+    .tab-bar {
+      display: flex;
+      gap: 2px;
+      margin-bottom: 20px;
+      border-bottom: 2px solid var(--workflow-border);
+    }
+    .tab-btn {
+      padding: 10px 20px;
+      background: none;
+      border: none;
+      color: var(--workflow-text-secondary);
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: var(--workflow-text); }
+    .tab-btn.active {
+      color: var(--workflow-primary);
+      border-bottom-color: var(--workflow-primary);
+      font-weight: 600;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+  </style>
+</head>
+<body>
+  <div class="workflow-container">
+    <div class="workflow-header">
+      <h1>🔬 API Explorer — New Features Demo</h1>
+      <p>Interactive demonstration of UUID system, ownership, and CRUD operations (Phases 1–4)</p>
+    </div>
+
+    <div class="workflow-breadcrumb">
+      <a href="index.html">Workflow Home</a>
+      <span class="separator">›</span>
+      <span class="current">API Explorer</span>
+    </div>
+
+    <!-- Phase Legend -->
+    <div class="phase-legend">
+      <div class="phase-legend-item"><span class="feature-badge phase1">Phase 1</span> Custom UUID System</div>
+      <div class="phase-legend-item"><span class="feature-badge phase2">Phase 2</span> GCS rasterID Naming</div>
+      <div class="phase-legend-item"><span class="feature-badge phase3">Phase 3</span> Ownership (userID / projectID)</div>
+      <div class="phase-legend-item"><span class="feature-badge phase4">Phase 4</span> CRUD Operations</div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('assets')">Assets</button>
+      <button class="tab-btn" onclick="switchTab('selections')">Selections</button>
+      <button class="tab-btn" onclick="switchTab('czml')">CZML</button>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- ASSETS TAB -->
+    <!-- ================================================================ -->
+    <div id="tab-assets" class="tab-content active">
+
+      <!-- 1. List & Filter Assets -->
+      <div class="demo-section">
+        <h3>
+          📋 List & Filter Assets
+          <span class="feature-badge phase3">Phase 3</span>
+        </h3>
+        <p class="section-desc">
+          List all assets with optional ownership filters. New <code>user_id</code> and <code>project_id</code> query parameters
+          let you retrieve only assets belonging to a specific user or project.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>user_id (optional)</label>
+            <input type="text" id="assetFilterUserId" placeholder="e.g. a1b2c3d4-e5f6-7890-abcd-ef1234567890">
+          </div>
+          <div class="input-group">
+            <label>project_id (optional)</label>
+            <input type="text" id="assetFilterProjectId" placeholder="e.g. proj-001">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="loadAssets()">
+            GET /assets
+          </button>
+          <span class="status-text" id="assetListStatus"></span>
+        </div>
+
+        <div class="entity-list" id="assetList"></div>
+        <div class="response-panel" id="assetListResponse"><pre></pre></div>
+      </div>
+
+      <!-- 2. Lookup by UUID -->
+      <div class="demo-section">
+        <h3>
+          🔍 Lookup by UUID
+          <span class="feature-badge phase1">Phase 1</span>
+        </h3>
+        <p class="section-desc">
+          Retrieve an asset by its frontend-generated <code>raster_id</code> UUID, rather than the internal MongoDB ObjectId.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>raster_id (UUID)</label>
+            <input type="text" id="assetLookupRasterId" placeholder="Paste a raster_id UUID here">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="lookupAssetByRasterId()">
+            GET /assets/by-raster-id/{raster_id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="assetLookupResponse"><pre></pre></div>
+      </div>
+
+      <!-- 3. Update Asset -->
+      <div class="demo-section">
+        <h3>
+          ✏️ Update Asset Metadata
+          <span class="feature-badge phase4">Phase 4</span>
+        </h3>
+        <p class="section-desc">
+          Update metadata fields on an existing asset. Only provided fields are changed; the GeoTIFF file is not replaced.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>Asset ID (MongoDB ObjectId) *</label>
+            <input type="text" id="assetUpdateId" placeholder="Select from list above or paste ID">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>index_type</label>
+            <input type="text" id="assetUpdateIndexType" placeholder="e.g. ppet">
+          </div>
+          <div class="input-group">
+            <label>units</label>
+            <input type="text" id="assetUpdateUnits" placeholder="e.g. ratio">
+          </div>
+          <div class="input-group">
+            <label>user_id</label>
+            <input type="text" id="assetUpdateUserId" placeholder="Owner UUID">
+          </div>
+          <div class="input-group">
+            <label>project_id</label>
+            <input type="text" id="assetUpdateProjectId" placeholder="Project UUID">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="updateAsset()">
+            PUT /assets/{id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="assetUpdateResponse"><pre></pre></div>
+      </div>
+
+      <!-- 4. Delete Asset -->
+      <div class="demo-section">
+        <h3>
+          🗑️ Delete Asset
+          <span class="feature-badge phase4">Phase 4</span>
+        </h3>
+        <p class="section-desc">
+          Permanently delete an asset from MongoDB <strong>and</strong> Google Cloud Storage.
+          Both the raw GeoTIFF and COG files are removed.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>Asset ID (MongoDB ObjectId)</label>
+            <input type="text" id="assetDeleteId" placeholder="Select from list above or paste ID">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" style="background: var(--workflow-danger);" onclick="deleteAsset()">
+            DELETE /assets/{id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="assetDeleteResponse"><pre></pre></div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- SELECTIONS TAB -->
+    <!-- ================================================================ -->
+    <div id="tab-selections" class="tab-content">
+
+      <!-- List Selections -->
+      <div class="demo-section">
+        <h3>
+          📋 List Selections
+        </h3>
+        <p class="section-desc">
+          List all saved polygon selections with summary metadata.
+        </p>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="loadSelections()">
+            GET /selections
+          </button>
+          <span class="status-text" id="selectionListStatus"></span>
+        </div>
+
+        <div class="entity-list" id="selectionList"></div>
+        <div class="response-panel" id="selectionListResponse"><pre></pre></div>
+      </div>
+
+      <!-- Lookup by UUID -->
+      <div class="demo-section">
+        <h3>
+          🔍 Lookup by selection_id UUID
+          <span class="feature-badge phase1">Phase 1</span>
+        </h3>
+        <p class="section-desc">
+          Retrieve a selection using the frontend-generated <code>selection_id</code> UUID.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>selection_id (UUID)</label>
+            <input type="text" id="selectionLookupUUID" placeholder="Paste a selection_id UUID here">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="lookupSelectionByUUID()">
+            GET /selections/by-selection-id/{selection_id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="selectionLookupResponse"><pre></pre></div>
+      </div>
+
+      <!-- Update Selection -->
+      <div class="demo-section">
+        <h3>
+          ✏️ Update Selection Metadata
+          <span class="feature-badge phase4">Phase 4</span>
+        </h3>
+        <p class="section-desc">
+          Update title, description, tags, or ownership fields on an existing selection.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>Selection ID (MongoDB ObjectId) *</label>
+            <input type="text" id="selectionUpdateId" placeholder="Select from list above or paste ID">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>title</label>
+            <input type="text" id="selectionUpdateTitle" placeholder="New title">
+          </div>
+          <div class="input-group">
+            <label>description</label>
+            <input type="text" id="selectionUpdateDesc" placeholder="New description">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>tags (comma-separated)</label>
+            <input type="text" id="selectionUpdateTags" placeholder="e.g. segama, ppet, 2041-2070">
+          </div>
+          <div class="input-group">
+            <label>user_id</label>
+            <input type="text" id="selectionUpdateUserId" placeholder="Owner UUID">
+          </div>
+          <div class="input-group">
+            <label>project_id</label>
+            <input type="text" id="selectionUpdateProjectId" placeholder="Project UUID">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="updateSelection()">
+            PUT /selections/{id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="selectionUpdateResponse"><pre></pre></div>
+      </div>
+
+      <!-- Delete Selection -->
+      <div class="demo-section">
+        <h3>
+          🗑️ Delete Selection
+          <span class="feature-badge phase4">Phase 4</span>
+        </h3>
+        <p class="section-desc">
+          Permanently delete a polygon selection and all its statistics from MongoDB.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>Selection ID (MongoDB ObjectId)</label>
+            <input type="text" id="selectionDeleteId" placeholder="Select from list above or paste ID">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" style="background: var(--workflow-danger);" onclick="deleteSelection()">
+            DELETE /selections/{id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="selectionDeleteResponse"><pre></pre></div>
+      </div>
+    </div>
+
+    <!-- ================================================================ -->
+    <!-- CZML TAB -->
+    <!-- ================================================================ -->
+    <div id="tab-czml" class="tab-content">
+
+      <!-- List CZML for Selection -->
+      <div class="demo-section">
+        <h3>
+          📋 List CZML Documents
+        </h3>
+        <p class="section-desc">
+          Retrieve all CZML documents generated for a given selection.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>Selection ID (MongoDB ObjectId)</label>
+            <input type="text" id="czmlListSelectionId" placeholder="Paste a selection ID">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="loadCZMLForSelection()">
+            GET /selections/{id}/czml
+          </button>
+          <span class="status-text" id="czmlListStatus"></span>
+        </div>
+
+        <div class="entity-list" id="czmlList"></div>
+        <div class="response-panel" id="czmlListResponse"><pre></pre></div>
+      </div>
+
+      <!-- Lookup by czml_id UUID -->
+      <div class="demo-section">
+        <h3>
+          🔍 Lookup by czml_id UUID
+          <span class="feature-badge phase1">Phase 1</span>
+        </h3>
+        <p class="section-desc">
+          Retrieve a CZML document using the frontend-generated <code>czml_id</code> UUID.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>czml_id (UUID)</label>
+            <input type="text" id="czmlLookupUUID" placeholder="Paste a czml_id UUID here">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="lookupCZMLByUUID()">
+            GET /czml/by-czml-id/{czml_id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="czmlLookupResponse"><pre></pre></div>
+      </div>
+
+      <!-- Update CZML -->
+      <div class="demo-section">
+        <h3>
+          ✏️ Update CZML Metadata
+          <span class="feature-badge phase4">Phase 4</span>
+        </h3>
+        <p class="section-desc">
+          Update metadata on an existing CZML document. This does not regenerate the CZML — re-export for that.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>CZML ID (MongoDB ObjectId) *</label>
+            <input type="text" id="czmlUpdateId" placeholder="Select from list above or paste ID">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>title</label>
+            <input type="text" id="czmlUpdateTitle" placeholder="New title">
+          </div>
+          <div class="input-group">
+            <label>description</label>
+            <input type="text" id="czmlUpdateDesc" placeholder="New description">
+          </div>
+        </div>
+        <div class="input-row">
+          <div class="input-group">
+            <label>user_id</label>
+            <input type="text" id="czmlUpdateUserId" placeholder="Owner UUID">
+          </div>
+          <div class="input-group">
+            <label>project_id</label>
+            <input type="text" id="czmlUpdateProjectId" placeholder="Project UUID">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" onclick="updateCZML()">
+            PUT /czml/{id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="czmlUpdateResponse"><pre></pre></div>
+      </div>
+
+      <!-- Delete CZML -->
+      <div class="demo-section">
+        <h3>
+          🗑️ Delete CZML Document
+          <span class="feature-badge phase4">Phase 4</span>
+        </h3>
+        <p class="section-desc">
+          Permanently delete a saved CZML document from MongoDB.
+        </p>
+
+        <div class="input-row">
+          <div class="input-group">
+            <label>CZML ID (MongoDB ObjectId)</label>
+            <input type="text" id="czmlDeleteId" placeholder="Select from list above or paste ID">
+          </div>
+        </div>
+
+        <div class="action-bar">
+          <button class="btn btn-primary" style="background: var(--workflow-danger);" onclick="deleteCZML()">
+            DELETE /czml/{id}
+          </button>
+        </div>
+
+        <div class="response-panel" id="czmlDeleteResponse"><pre></pre></div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="text-align: center; margin-top: 40px; padding: 20px; color: #6b7280; font-size: 13px;">
+      <p style="margin: 0;">
+        Heart of Borneo Climate Raster Tile Server | FastAPI + MongoDB + GCS + Cesium
+      </p>
+    </div>
+  </div>
+
+  <script src="static/demo3-common.js"></script>
+  <script src="static/api_explorer.js"></script>
+</body>
+</html>

@@ -12,7 +12,7 @@ import rasterio
 from fastapi import APIRouter, Form, HTTPException, status
 from fastapi.responses import Response
 
-from app.climate_indices.repository import AssetRepository
+from app.climate_indices import AssetRepository
 from app.api.climate.query import zonal_stats_from_cog, extract_pixels_from_cog
 from app.core.logging import get_logger
 
@@ -33,6 +33,31 @@ def _validate_cog_uri(uri: str) -> str:
             detail=f"Invalid COG URI: expected gs:// path, got {uri}"
         )
     return uri
+
+
+def _resolve_asset(asset_id: str, repo: AssetRepository):
+    """
+    Resolve asset by ID, supporting both MongoDB ObjectId and frontend raster_id.
+    
+    Tries MongoDB ObjectId first. If that fails (invalid format or not found),
+    falls back to raster_id lookup.
+    
+    Returns:
+        tuple[AssetRecord | None, str]: (asset, resolved_id)
+            - resolved_id is the MongoDB ObjectId string for consistency
+    """
+    # Try MongoDB ObjectId first
+    asset = repo.get_asset(asset_id)
+    if asset:
+        return asset, asset.id
+    
+    # Fall back to raster_id lookup
+    asset = repo.get_asset_by_raster_id(asset_id)
+    if asset:
+        logger.info("Resolved raster_id %s to MongoDB id %s", asset_id, asset.id)
+        return asset, asset.id
+    
+    return None, asset_id
 
 
 def _parse_query_inputs(asset_ids: str, polygons_geojson: str) -> tuple[list[str], list[dict]]:
@@ -66,16 +91,21 @@ def _parse_query_inputs(asset_ids: str, polygons_geojson: str) -> tuple[list[str
 
 
 def _fetch_assets(asset_id_list: list[str], repo: AssetRepository) -> dict:
-    """Fetch assets from repository and validate all exist."""
+    """
+    Fetch assets from repository and validate all exist.
+    
+    Supports both MongoDB ObjectIds and frontend raster_id UUIDs.
+    Returns dict keyed by resolved MongoDB ObjectId.
+    """
     assets = {}
     missing_ids = []
     
     for asset_id in asset_id_list:
-        asset = repo.get_asset(asset_id)
+        asset, resolved_id = _resolve_asset(asset_id, repo)
         if not asset:
             missing_ids.append(asset_id)
         else:
-            assets[asset_id] = asset
+            assets[resolved_id] = asset
     
     if missing_ids:
         raise HTTPException(
@@ -226,7 +256,7 @@ def _generate_pixels_json(assets: dict, polygons: list) -> Response:
     description="Compute zonal statistics from GCS-stored COGs within polygon geometries. Supports multiple assets and multiple polygons.",
 )
 async def query_polygons_stats(
-    asset_ids: str = Form(..., description="Comma-separated asset identifiers (e.g., 'id1,id2,id3')."),
+    asset_ids: str = Form(..., description="Comma-separated asset IDs (MongoDB ObjectId or raster_id UUID)."),
     polygons_geojson: str = Form(..., description='JSON array of Polygon GeoJSON objects as string (e.g., \'[{"type":"Polygon","coordinates":[[[117.5,4.8],[117.6,4.8],[117.6,4.9],[117.5,4.9],[117.5,4.8]]]}]\').'),
 ) -> dict:
     """
@@ -292,7 +322,7 @@ async def query_polygons_stats(
     description="Extract all raw pixel values from GCS-stored COGs within polygon geometries. Returns CSV by default or JSON if format=json.",
 )
 async def query_polygons_pixels(
-    asset_ids: str = Form(..., description="Comma-separated asset identifiers (e.g., 'id1,id2,id3')."),
+    asset_ids: str = Form(..., description="Comma-separated asset IDs (MongoDB ObjectId or raster_id UUID)."),
     polygons_geojson: str = Form(..., description='JSON array of Polygon GeoJSON objects as string (e.g., \'[{"type":"Polygon","coordinates":[[[117.5,4.8],[117.6,4.8],[117.6,4.9],[117.5,4.9],[117.5,4.8]]]}]\').'),
     format: str = Form("csv", description="Output format: 'csv' or 'json'. Default is 'csv'."),
 ) -> Response:

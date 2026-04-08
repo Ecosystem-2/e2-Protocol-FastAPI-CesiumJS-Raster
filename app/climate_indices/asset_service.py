@@ -1,3 +1,5 @@
+"""Raster ingest and persistence service."""
+
 from __future__ import annotations
 
 import hashlib
@@ -16,8 +18,8 @@ from app.climate_indices.models import (
     RasterSummary,
     StorageInfo,
 )
-from app.climate_indices.repository import AssetRepository
-from app.climate_indices.storage import GCSBlobStore
+from app.climate_indices.asset_repository import AssetRepository
+from app.climate_indices.blob_storage import GCSBlobStore
 
 PathLike = Union[str, Path]
 BytesLike = Union[bytes, bytearray, memoryview]
@@ -61,8 +63,14 @@ def persist_climate_index(
     ingest = ingest_upload(payload, request)
 
     checksum = hashlib.sha256(payload).hexdigest()
-    raw_uri = blob_store.save_bytes(payload, filename=request.filename, content_type="image/tiff")
-    cog_uri = blob_store.save_bytes(payload, filename=f"{Path(request.filename or 'upload').stem}.cog.tif", content_type="image/tiff")
+    # Use raster_id for blob naming instead of original filename
+    # Original filename is preserved in AssetRecord.filename for reference
+    raw_uri = blob_store.save_bytes(
+        payload, blob_id=request.raster_id, suffix=".tif", content_type="image/tiff"
+    )
+    cog_uri = blob_store.save_bytes(
+        payload, blob_id=request.raster_id, suffix=".cog.tif", content_type="image/tiff"
+    )
     storage = AssetStorage(
         raw=StorageInfo(
             kind=getattr(blob_store, "kind", "unknown"),
@@ -84,6 +92,8 @@ def persist_climate_index(
         time_range=request.time_range,
         units=request.units,
         filename=request.filename,
+        user_id=request.user_id,
+        project_id=request.project_id,
         storage=storage,
         raster=ingest.raster,
     )
@@ -98,6 +108,8 @@ def persist_climate_index(
         asset=request,
         asset_id=asset_id,
         raster_id=request.raster_id,
+        user_id=request.user_id,
+        project_id=request.project_id,
         storage=storage,
         raster=ingest.raster,
         replaced=was_replaced

@@ -1,26 +1,51 @@
+"""Domain models for climate indices.
+
+This module contains all Pydantic models for:
+- Common types (TimeRange, StorageInfo)
+- Asset records (raster metadata, ingest requests)
+- Polygon selections (geometry, statistics)
+- CZML export (options, documents)
+"""
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Tuple, Literal, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
+# =============================================================================
+# Common Models
+# =============================================================================
+
+
 class TimeRange(BaseModel):
+    """Time range for temporal data."""
+
     start: Optional[datetime] = Field(default=None, description="Start timestamp for the asset.")
     end: Optional[datetime] = Field(default=None, description="End timestamp for the asset.")
 
 
-class AssetIngestRequest(BaseModel):
-    """User-supplied context for a GeoTIFF upload."""
+class StorageInfo(BaseModel):
+    """Where the raw/COG is stored."""
 
-    model_config = ConfigDict(str_strip_whitespace=True)
+    kind: Literal["local", "gridfs", "s3", "gcs", "unknown"] = "unknown"
+    uri: str = Field(..., description="Location of the stored blob (path, URL, or key).")
+    checksum: Optional[str] = Field(default=None, description="Checksum of the stored payload.")
+    size_bytes: Optional[int] = Field(default=None, description="Size of the stored payload in bytes.")
 
-    raster_id: Optional[str] = Field(default=None, description="Frontend-generated UUID for cross-system reference.")
-    index_type: str = Field(..., description="Climate index name, e.g., humid-heat-stress.")
-    time_range: Optional[TimeRange] = Field(default=None, description="Time coverage for the asset.")
-    units: Optional[str] = Field(default=None, description="Units of the raster values.")
-    filename: Optional[str] = Field(default=None, description="Original filename (optional provenance).")
+
+class AssetStorage(BaseModel):
+    """Raw and COG storage references."""
+
+    raw: StorageInfo
+    cog: StorageInfo
+
+
+# =============================================================================
+# Asset Models
+# =============================================================================
 
 
 class RasterSummary(BaseModel):
@@ -75,27 +100,25 @@ class RasterSummary(BaseModel):
         )
 
 
+class AssetIngestRequest(BaseModel):
+    """User-supplied context for a GeoTIFF upload."""
+
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    raster_id: Optional[str] = Field(default=None, description="Frontend-generated UUID for cross-system reference.")
+    index_type: str = Field(..., description="Climate index name, e.g., humid-heat-stress.")
+    time_range: Optional[TimeRange] = Field(default=None, description="Time coverage for the asset.")
+    units: Optional[str] = Field(default=None, description="Units of the raster values.")
+    filename: Optional[str] = Field(default=None, description="Original filename (optional provenance).")
+    user_id: Optional[str] = Field(default=None, description="Owner user UUID for access control.")
+    project_id: Optional[str] = Field(default=None, description="Project UUID for grouping assets.")
+
+
 class AssetIngestResult(BaseModel):
     """Result of an ingest attempt, ready to be persisted or queued for further processing."""
 
     asset: AssetIngestRequest
     raster: RasterSummary
-
-
-class StorageInfo(BaseModel):
-    """Where the raw/COG is stored."""
-
-    kind: Literal["local", "gridfs", "s3", "gcs", "unknown"] = "unknown"
-    uri: str = Field(..., description="Location of the stored blob (path, URL, or key).")
-    checksum: Optional[str] = Field(default=None, description="Checksum of the stored payload.")
-    size_bytes: Optional[int] = Field(default=None, description="Size of the stored payload in bytes.")
-
-
-class AssetStorage(BaseModel):
-    """Raw and COG storage references."""
-
-    raw: StorageInfo
-    cog: StorageInfo
 
 
 class AssetRecord(BaseModel):
@@ -109,23 +132,29 @@ class AssetRecord(BaseModel):
     time_range: Optional[TimeRange] = None
     units: Optional[str] = None
     filename: Optional[str] = None
+    user_id: Optional[str] = Field(default=None, description="Owner user UUID for access control.")
+    project_id: Optional[str] = Field(default=None, description="Project UUID for grouping assets.")
     storage: AssetStorage
     raster: RasterSummary
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class AssetPersistenceResult(BaseModel):
+    """Result of persisting an asset to storage and database."""
+
     asset: AssetIngestRequest
     asset_id: str
     raster_id: Optional[str] = Field(default=None, description="Frontend-generated UUID if provided.")
+    user_id: Optional[str] = Field(default=None, description="Owner user UUID.")
+    project_id: Optional[str] = Field(default=None, description="Project UUID.")
     storage: AssetStorage
     raster: RasterSummary
     replaced: bool = Field(default=False, description="True if an existing asset was replaced")
 
 
-# ============================================================================
-# Polygon Selection Models
-# ============================================================================
+# =============================================================================
+# Selection Models
+# =============================================================================
 
 
 class PolygonGeometry(BaseModel):
@@ -142,7 +171,7 @@ class SelectionStatistics(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    asset_id: str
+    asset_ref: str = Field(..., description="MongoDB ObjectId reference to the asset")
     index_type: str = Field(..., description="Climate index type (ppet, wbgt, etc.)")
     units: Optional[str] = Field(default=None)
 
@@ -184,6 +213,10 @@ class PolygonSelectionRecord(BaseModel):
     locale_id: Optional[str] = Field(default=None, description="Locale UUID for grouping selections")
     site_id: Optional[str] = Field(default=None, description="Site UUID for this selection")
 
+    # Ownership
+    user_id: Optional[str] = Field(default=None, description="Owner user UUID for access control.")
+    project_id: Optional[str] = Field(default=None, description="Project UUID for grouping selections.")
+
     # User metadata
     title: str = Field(..., min_length=1, max_length=200, description="Unique selection title")
     description: Optional[str] = Field(default=None, max_length=2000)
@@ -198,7 +231,12 @@ class PolygonSelectionRecord(BaseModel):
     # Audit trail
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    created_by: Optional[str] = Field(default=None, description="User ID or session")
+    created_by: Optional[str] = Field(default=None, description="Deprecated: use user_id instead")
+
+
+# =============================================================================
+# CZML Models
+# =============================================================================
 
 
 class CZMLExportOptions(BaseModel):
@@ -285,92 +323,63 @@ class CZMLRecord(BaseModel):
 
     id: Optional[str] = Field(default=None, alias="_id")
     czml_id: Optional[str] = Field(default=None, description="Frontend-generated UUID for cross-system reference.")
-    
-    selection_id: str = Field(
+
+    selection_ref: str = Field(
         ...,
-        description="Reference to polygon_selections collection"
+        description="MongoDB ObjectId reference to polygon_selections collection"
     )
-    
+
     index_type: str = Field(
         ...,
         description="Climate index type (e.g., ppet, wbgt)"
     )
-    
+
     title: str = Field(..., description="CZML document name")
     description: Optional[str] = Field(default=None)
-    
+
+    # Ownership
+    user_id: Optional[str] = Field(default=None, description="Owner user UUID for access control.")
+    project_id: Optional[str] = Field(default=None, description="Project UUID for grouping CZML documents.")
+
     # Export configuration used to generate this CZML
     export_options: CZMLExportOptions = Field(
         ...,
         description="Options used for CZML generation"
     )
-    
+
     # The CZML document itself (list of packets as JSON string or dict)
     czml_document: List[Dict[str, Any]] = Field(
         ...,
         description="CZML packet array"
     )
-    
+
     # Metadata
     packet_count: int = Field(default=0, description="Number of CZML packets")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-# ============================================================================
-# LocaleData and SiteData Models for MongoDB storage
-# ============================================================================
+# =============================================================================
+# Exports
+# =============================================================================
 
-
-class SiteLocation(BaseModel):
-    """Site location with geometry and statistics."""
-
-    model_config = ConfigDict(str_strip_whitespace=True)
-
-    coordinates: List[float] = Field(..., description="[lon, lat, height]")
-    polygon: Optional[Union[PolygonGeometry, List[PolygonGeometry]]] = Field(
-        default=None, 
-        description="Single polygon, MultiPolygon, or array of polygons"
-    )
-    centroid: Optional[Dict[str, float]] = Field(default=None, description="{lon, lat}")
-    statistics: Optional[List[SelectionStatistics]] = Field(default=None, description="Zonal statistics")
-
-
-class SiteData(BaseModel):
-    """Individual site data record matching temp.json schema."""
-
-    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
-
-    site_id: str = Field(..., alias="siteID", description="Unique UUID for site")
-    locale_id: str = Field(..., alias="localeID", description="Parent locale UUID")
-    user_id: Optional[str] = Field(None, alias="userID", description="Optional user UUID")
-    project_id: Optional[str] = Field(None, alias="projectID", description="Optional project UUID")
-    title: str = Field(..., description="Site name")
-    desc: Optional[str] = Field(None, description="Site description")
-    creation_date_time: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        alias="creationDateTime",
-        description="ISO8601 datetime"
-    )
-    location: SiteLocation = Field(..., description="Site location with geometry and statistics")
-    media_id: Optional[List[str]] = Field(default_factory=list, alias="mediaID", description="Optional media UUIDs")
-    category: Optional[List[str]] = Field(default_factory=list, description="Optional categories")
-    tags: Optional[List[str]] = Field(default_factory=list, description="Optional tags")
-
-
-class LocaleData(BaseModel):
-    """Locale data aggregating multiple sites."""
-
-    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
-
-    id: Optional[str] = Field(default=None, alias="_id", description="MongoDB ObjectId")
-    locale_id: str = Field(..., alias="localeID", description="Unique UUID for locale")
-    site_id: List[str] = Field(default_factory=list, alias="siteID", description="List of site UUIDs")
-    project_id: Optional[str] = Field(None, alias="projectID", description="Optional project UUID")
-    title: str = Field(..., description="Locale title")
-    description: Optional[str] = Field(None, description="Locale description")
-    creation_date: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc),
-        alias="creationDate",
-        description="ISO8601 datetime"
-    )
+__all__ = [
+    # Common
+    "TimeRange",
+    "StorageInfo",
+    "AssetStorage",
+    # Asset
+    "RasterSummary",
+    "AssetIngestRequest",
+    "AssetIngestResult",
+    "AssetRecord",
+    "AssetPersistenceResult",
+    # Selection
+    "PolygonGeometry",
+    "SelectionStatistics",
+    "PolygonWithStatistics",
+    "PolygonSelectionRecord",
+    # CZML
+    "CZMLExportOptions",
+    "CZMLRecord",
+]

@@ -8,10 +8,14 @@ import os
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 
-from app.climate_indices.models import AssetIngestRequest, AssetIngestResult, TimeRange
-from app.climate_indices.service import persist_climate_index
-from app.climate_indices.repository import AssetRepository
-from app.climate_indices.storage import GCSBlobStore
+from app.climate_indices import (
+    AssetIngestRequest,
+    AssetIngestResult,
+    TimeRange,
+    persist_climate_index,
+    GCSBlobStore,
+    AssetRepository,
+)
 from app.core.logging import get_logger
 
 router = APIRouter()
@@ -96,6 +100,16 @@ async def ingest_and_store_climate_index(
         ),
         examples=["550e8400-e29b-41d4-a716-446655440000"],
     ),
+    user_id: Optional[str] = Form(
+        None,
+        description="Owner user UUID for access control. Frontend responsibility to manage user records.",
+        examples=["a1b2c3d4-e5f6-7890-abcd-ef1234567890"],
+    ),
+    project_id: Optional[str] = Form(
+        None,
+        description="Project UUID for grouping assets. Frontend responsibility to manage project records.",
+        examples=["proj-1234-5678-9abc-def012345678"],
+    ),
 ) -> dict:
     """Ingest and persist GeoTIFF to storage with metadata in MongoDB."""
     payload = await file.read()
@@ -107,6 +121,8 @@ async def ingest_and_store_climate_index(
         time_range=TimeRange(start=time_start, end=time_end),
         units=units,
         filename=file.filename,
+        user_id=user_id,
+        project_id=project_id,
     )
 
     blob_store, repo = _initialise_storage()
@@ -116,6 +132,8 @@ async def ingest_and_store_climate_index(
     response_dict = response.model_dump()
     response_dict["asset_id"] = persisted.asset_id
     response_dict["raster_id"] = persisted.raster_id
+    response_dict["user_id"] = persisted.user_id
+    response_dict["project_id"] = persisted.project_id
     response_dict["storage"] = persisted.storage.model_dump()
     response_dict["replaced"] = persisted.replaced
     return response_dict

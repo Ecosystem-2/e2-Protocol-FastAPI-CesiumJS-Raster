@@ -296,7 +296,7 @@ def export_polygon_czml(
         # Sort each group by time_range if available
         for idx_type in poly_grouped:
             poly_grouped[idx_type].sort(
-                key=lambda s: s.time_range.start if s.time_range and s.time_range.start else s.asset_id
+                key=lambda s: s.time_range.start if s.time_range and s.time_range.start else s.asset_ref
             )
         
         # Create entities for each index type
