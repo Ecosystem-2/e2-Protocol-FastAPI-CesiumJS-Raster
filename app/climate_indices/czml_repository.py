@@ -27,25 +27,25 @@ class CZMLRepository:
 
     def _ensure_indexes(self) -> None:
         """Create indexes for efficient queries."""
-        # Sparse unique index on czml_id (only indexes documents where czml_id exists)
+        # Sparse unique index on czmlID (only indexes documents where czmlID exists)
         self.collection.create_index(
-            [("czml_id", 1)],
+            [("czmlID", 1)],
             unique=True,
             sparse=True
         )
-        # Index on selection_ref for lookups
-        self.collection.create_index([("selection_ref", 1)])
-        # Compound index for selection_ref + index_type + visualisation_type
+        # Index on selectionRef for lookups
+        self.collection.create_index([("selectionRef", 1)])
+        # Compound index for selectionRef + indexType + visualisationType
         self.collection.create_index([
-            ("selection_ref", 1),
-            ("index_type", 1),
-            ("export_options.visualisation_type", 1)
+            ("selectionRef", 1),
+            ("indexType", 1),
+            ("exportOptions.visualisationType", 1)
         ])
-        # Index on created_at for sorting
-        self.collection.create_index([("created_at", -1)])
+        # Index on createdAt for sorting
+        self.collection.create_index([("createdAt", -1)])
         # Sparse indexes for ownership filtering
-        self.collection.create_index([("user_id", 1)], sparse=True)
-        self.collection.create_index([("project_id", 1)], sparse=True)
+        self.collection.create_index([("userID", 1)], sparse=True)
+        self.collection.create_index([("projectID", 1)], sparse=True)
         logger.debug("Ensured indexes for czml_documents collection")
 
     def save_czml(
@@ -64,22 +64,22 @@ class CZMLRepository:
                 - was_replaced: True if existing record was replaced
         """
         doc = record.model_dump(by_alias=True, exclude={"id"}, exclude_none=True)
-        doc["updated_at"] = datetime.now(timezone.utc)
+        doc["updatedAt"] = datetime.now(timezone.utc)
 
-        # Find existing CZML by selection_ref + index_type + visualisation_type
+        # Find existing CZML by selectionRef + indexType + visualisationType
         vis_type = record.export_options.visualisation_type
         index_type = record.index_type
         existing = self.collection.find_one({
-            "selection_ref": record.selection_ref,
-            "index_type": index_type,
-            "export_options.visualisation_type": vis_type
+            "selectionRef": record.selection_ref,
+            "indexType": index_type,
+            "exportOptions.visualisationType": vis_type
         })
 
         if existing:
             # Replace existing document, keeping the same _id
             czml_id = str(existing["_id"])
             doc["_id"] = existing["_id"]
-            doc["created_at"] = existing.get("created_at", datetime.now(timezone.utc))
+            doc["createdAt"] = existing.get("createdAt", datetime.now(timezone.utc))
 
             self.collection.replace_one({"_id": existing["_id"]}, doc)
             logger.info(
@@ -89,8 +89,8 @@ class CZMLRepository:
             return czml_id, True
         else:
             # Insert new document
-            if "created_at" not in doc:
-                doc["created_at"] = datetime.now(timezone.utc)
+            if "createdAt" not in doc:
+                doc["createdAt"] = datetime.now(timezone.utc)
             result = self.collection.insert_one(doc)
             czml_id = str(result.inserted_id)
             logger.info(
@@ -116,8 +116,8 @@ class CZMLRepository:
         return CZMLRecord.model_validate(doc)
 
     def get_czml_by_czml_id(self, czml_id: str) -> Optional[CZMLRecord]:
-        """Fetch CZML document by frontend-generated czml_id (UUID)."""
-        doc = self.collection.find_one({"czml_id": czml_id})
+        """Fetch CZML document by frontend-generated czmlID (UUID)."""
+        doc = self.collection.find_one({"czmlID": czml_id})
         if not doc:
             return None
 
@@ -142,13 +142,13 @@ class CZMLRepository:
         Returns:
             List of CZMLRecord documents
         """
-        query = {"selection_ref": selection_ref}
+        query = {"selectionRef": selection_ref}
         if index_type:
-            query["index_type"] = index_type
+            query["indexType"] = index_type
         if visualisation_type:
-            query["export_options.visualisation_type"] = visualisation_type
+            query["exportOptions.visualisationType"] = visualisation_type
 
-        cursor = self.collection.find(query).sort("created_at", -1)
+        cursor = self.collection.find(query).sort("createdAt", -1)
 
         results = []
         for doc in cursor:
@@ -169,7 +169,7 @@ class CZMLRepository:
         """List CZML documents with pagination."""
         cursor = (
             self.collection.find()
-            .sort("created_at", -1)
+            .sort("createdAt", -1)
             .skip(skip)
             .limit(limit)
         )

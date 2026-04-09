@@ -243,10 +243,10 @@ async def list_selections(
             "title": sel.title,
             "description": sel.description,
             "tags": sel.tags,
-            "polygon_count": len(sel.polygons),
-            "statistics_count": sum(len(p.statistics) for p in sel.polygons),
-            "created_at": sel.created_at.isoformat(),
-            "updated_at": sel.updated_at.isoformat()
+            "polygonCount": len(sel.polygons),
+            "statisticsCount": sum(len(p.statistics) for p in sel.polygons),
+            "createdAt": sel.created_at.isoformat(),
+            "updatedAt": sel.updated_at.isoformat()
         }
         for sel in selections
     ]

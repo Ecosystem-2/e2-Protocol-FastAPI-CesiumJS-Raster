@@ -31,21 +31,21 @@ class AssetRepository:
 
     def _ensure_indexes(self) -> None:
         """Create indexes for efficient queries."""
-        # Sparse unique index on raster_id (only indexes documents where raster_id exists)
+        # Sparse unique index on rasterID (only indexes documents where rasterID exists)
         self.collection.create_index(
-            [("raster_id", 1)],
+            [("rasterID", 1)],
             unique=True,
             sparse=True
         )
         # Non-unique index on filename for search (not upsert)
         self.collection.create_index([("filename", 1)])
-        # Index on index_type for filtering
-        self.collection.create_index([("index_type", 1)])
-        # Index on created_at for sorting
-        self.collection.create_index([("created_at", -1)])
+        # Index on indexType for filtering
+        self.collection.create_index([("indexType", 1)])
+        # Index on createdAt for sorting
+        self.collection.create_index([("createdAt", -1)])
         # Sparse indexes for ownership filtering
-        self.collection.create_index([("user_id", 1)], sparse=True)
-        self.collection.create_index([("project_id", 1)], sparse=True)
+        self.collection.create_index([("userID", 1)], sparse=True)
+        self.collection.create_index([("projectID", 1)], sparse=True)
         logger.debug("Ensured indexes for assets collection")
 
     def insert_asset(self, asset: AssetRecord) -> str:
@@ -69,20 +69,20 @@ class AssetRepository:
         """
         doc = asset.model_dump(by_alias=True, exclude_none=True)
 
-        # Only upsert by raster_id if raster_id is provided
+        # Only upsert by rasterID if raster_id is provided
         existing = None
         if asset.raster_id:
-            existing = self.collection.find_one({"raster_id": asset.raster_id})
+            existing = self.collection.find_one({"rasterID": asset.raster_id})
 
         if existing:
             # Replace existing document, keeping the same _id
             asset_id = str(existing["_id"])
             doc["_id"] = existing["_id"]  # Preserve original _id
-            doc["created_at"] = existing.get("created_at")  # Preserve creation timestamp
-            doc["updated_at"] = datetime.now(timezone.utc)  # Update modification timestamp
+            doc["createdAt"] = existing.get("createdAt")  # Preserve creation timestamp
+            doc["updatedAt"] = datetime.now(timezone.utc)  # Update modification timestamp
 
             self.collection.replace_one({"_id": existing["_id"]}, doc)
-            logger.info("Replaced existing asset %s (raster_id: %s)", asset_id, asset.raster_id)
+            logger.info("Replaced existing asset %s (rasterID: %s)", asset_id, asset.raster_id)
             return asset_id, True
         else:
             # Insert new document
@@ -115,11 +115,11 @@ class AssetRepository:
         """List assets with pagination and optional ownership filtering."""
         query_filter: dict[str, Any] = {}
         if user_id:
-            query_filter["user_id"] = user_id
+            query_filter["userID"] = user_id
         if project_id:
-            query_filter["project_id"] = project_id
+            query_filter["projectID"] = project_id
 
-        cursor = self.collection.find(query_filter).skip(skip).limit(limit).sort("created_at", -1)
+        cursor = self.collection.find(query_filter).skip(skip).limit(limit).sort("createdAt", -1)
         assets = []
         for doc in cursor:
             if "_id" in doc:
@@ -132,22 +132,22 @@ class AssetRepository:
         """Count total number of assets, optionally filtered by ownership."""
         query_filter: dict[str, Any] = {}
         if user_id:
-            query_filter["user_id"] = user_id
+            query_filter["userID"] = user_id
         if project_id:
-            query_filter["project_id"] = project_id
+            query_filter["projectID"] = project_id
         return self.collection.count_documents(query_filter)
 
     def search_assets(self, query: str, limit: int = 20) -> list[AssetRecord]:
-        """Search assets by filename, index_type, or units using fuzzy matching."""
+        """Search assets by filename, indexType, or units using fuzzy matching."""
         # Use MongoDB text search or regex for fuzzy matching
         search_filter = {
             "$or": [
                 {"filename": {"$regex": query, "$options": "i"}},
-                {"index_type": {"$regex": query, "$options": "i"}},
+                {"indexType": {"$regex": query, "$options": "i"}},
                 {"units": {"$regex": query, "$options": "i"}},
             ]
         }
-        cursor = self.collection.find(search_filter).limit(limit).sort("created_at", -1)
+        cursor = self.collection.find(search_filter).limit(limit).sort("createdAt", -1)
         assets = []
         for doc in cursor:
             if "_id" in doc:
@@ -166,8 +166,8 @@ class AssetRepository:
         return AssetRecord.model_validate(doc)
 
     def get_asset_by_raster_id(self, raster_id: str) -> Optional[AssetRecord]:
-        """Get asset by frontend-generated raster_id (UUID)."""
-        doc = self.collection.find_one({"raster_id": raster_id})
+        """Get asset by frontend-generated rasterID (UUID)."""
+        doc = self.collection.find_one({"rasterID": raster_id})
         if not doc:
             return None
         if "_id" in doc:
@@ -214,19 +214,19 @@ class AssetRepository:
             return None
 
         update_fields: dict[str, Any] = {
-            "updated_at": datetime.now(timezone.utc)
+            "updatedAt": datetime.now(timezone.utc)
         }
 
         if index_type is not None:
-            update_fields["index_type"] = index_type
+            update_fields["indexType"] = index_type
         if units is not None:
             update_fields["units"] = units
         if user_id is not None:
-            update_fields["user_id"] = user_id
+            update_fields["userID"] = user_id
         if project_id is not None:
-            update_fields["project_id"] = project_id
+            update_fields["projectID"] = project_id
 
-        if len(update_fields) == 1:  # Only updated_at
+        if len(update_fields) == 1:  # Only updatedAt
             logger.warning("No fields to update for asset %s", asset_id)
             return self.get_asset(asset_id)
 

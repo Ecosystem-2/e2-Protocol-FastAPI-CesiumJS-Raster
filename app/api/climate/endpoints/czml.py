@@ -7,7 +7,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Form, HTTPException, Path, Query, status
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.climate_indices import CZMLExportOptions, CZMLRecord, SelectionRepository, CZMLRepository
 from app.climate_indices.czml_generate import CZMLExportService
@@ -25,13 +25,16 @@ logger = get_logger(__name__)
 
 class CZMLExportResponse(BaseModel):
     """Response model for CZML export."""
-    czml_id: str
-    selection_ref: str  # MongoDB ObjectId of the source selection
-    index_type: str
-    visualisation_type: str
-    packet_count: int
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    czml_id: str = Field(..., alias="czmlID")
+    selection_ref: str = Field(..., alias="selectionRef")  # MongoDB ObjectId of the source selection
+    index_type: str = Field(..., alias="indexType")
+    visualisation_type: str = Field(..., alias="visualisationType")
+    packet_count: int = Field(..., alias="packetCount")
     replaced: bool
-    czml_document: List[dict]
+    czml_document: List[dict] = Field(..., alias="czmlDocument")
 
 
 class ColourmapListResponse(BaseModel):
