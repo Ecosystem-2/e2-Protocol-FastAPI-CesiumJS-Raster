@@ -129,11 +129,11 @@ async def ingest_and_store_climate_index(
     persisted = persist_climate_index(payload, request, blob_store=blob_store, repo=repo)
 
     response = AssetIngestResult(asset=request, raster=persisted.raster)
-    response_dict = response.model_dump()
-    response_dict["asset_id"] = persisted.asset_id
-    response_dict["raster_id"] = persisted.raster_id
-    response_dict["user_id"] = persisted.user_id
-    response_dict["project_id"] = persisted.project_id
-    response_dict["storage"] = persisted.storage.model_dump()
+    response_dict = response.model_dump(by_alias=True)
+    response_dict["assetID"] = persisted.asset_id
+    response_dict["rasterID"] = persisted.raster_id
+    response_dict["userID"] = persisted.user_id
+    response_dict["projectID"] = persisted.project_id
+    response_dict["storage"] = persisted.storage.model_dump(by_alias=True)
     response_dict["replaced"] = persisted.replaced
     return response_dict

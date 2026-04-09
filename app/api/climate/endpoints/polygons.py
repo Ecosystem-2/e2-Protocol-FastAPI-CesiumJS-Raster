@@ -122,7 +122,7 @@ def _generate_pixels_csv(assets: dict, polygons: list) -> Response:
     writer = csv.writer(output)
     
     # Write CSV header
-    writer.writerow(["asset_id", "filename", "polygon_index", "lon", "lat", "value", "row", "col"])
+    writer.writerow(["assetID", "filename", "polygonIndex", "lon", "lat", "value", "row", "col"])
     
     # Extract pixels for each asset and polygon
     for asset_id, asset in assets.items():
@@ -209,36 +209,36 @@ def _generate_pixels_json(assets: dict, polygons: list) -> Response:
                     })
                 
                 polygon_results.append({
-                    "polygon_index": poly_idx,
-                    "pixel_count": len(pixels),
+                    "polygonIndex": poly_idx,
+                    "pixelCount": len(pixels),
                     "pixels": pixels
                 })
-            
+
             except Exception as exc:
                 logger.warning(
                     "Failed to extract pixels for asset %s, polygon %d: %s",
                     asset_id, poly_idx, exc
                 )
                 polygon_results.append({
-                    "polygon_index": poly_idx,
+                    "polygonIndex": poly_idx,
                     "error": str(exc),
                     "pixels": []
                 })
-        
+
         results[asset_id] = {
-            "index_type": asset.index_type,
+            "indexType": asset.index_type,
             "units": asset.units,
             "filename": asset.filename,
             "metadata": {
-                "time_range": asset.time_range.model_dump() if asset.time_range else None,
+                "timeRange": asset.time_range.model_dump(by_alias=True) if asset.time_range else None,
             },
             "polygons": polygon_results
         }
-    
+
     return Response(
         content=json.dumps({
-            "asset_count": len(assets),
-            "polygon_count": len(polygons),
+            "assetCount": len(assets),
+            "polygonCount": len(polygons),
             "results": results
         }, indent=2),
         media_type="application/json"
@@ -282,10 +282,10 @@ async def query_polygons_stats(
             try:
                 stats = zonal_stats_from_cog(cog_uri, polygon)
                 polygon_results.append({
-                    "polygon_index": idx,
+                    "polygonIndex": idx,
                     "stats": {
                         **stats,
-                        "count_description": "Number of valid raster pixels within the polygon"
+                        "countDescription": "Number of valid raster pixels within the polygon"
                     }
                 })
             except Exception as exc:
@@ -294,24 +294,24 @@ async def query_polygons_stats(
                     asset_id, idx, exc
                 )
                 polygon_results.append({
-                    "polygon_index": idx,
+                    "polygonIndex": idx,
                     "error": str(exc),
                     "stats": None
                 })
-        
+
         results[asset_id] = {
-            "index_type": asset.index_type,
+            "indexType": asset.index_type,
             "units": asset.units,
             "metadata": {
                 "filename": asset.filename,
-                "time_range": asset.time_range.model_dump() if asset.time_range else None,
+                "timeRange": asset.time_range.model_dump(by_alias=True) if asset.time_range else None,
             },
             "polygons": polygon_results
         }
-    
+
     return {
-        "asset_count": len(assets),
-        "polygon_count": len(polygons),
+        "assetCount": len(assets),
+        "polygonCount": len(polygons),
         "results": results
     }
 

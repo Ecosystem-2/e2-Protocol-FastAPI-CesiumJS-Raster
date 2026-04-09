@@ -27,9 +27,9 @@ class SelectionRepository:
 
     def _ensure_indexes(self) -> None:
         """Create indexes for efficient queries."""
-        # Sparse unique index on selection_id (only indexes documents where selection_id exists)
+        # Sparse unique index on selectionID (only indexes documents where selectionID exists)
         self.collection.create_index(
-            [("selection_id", 1)],
+            [("selectionID", 1)],
             unique=True,
             sparse=True
         )
@@ -37,11 +37,11 @@ class SelectionRepository:
         self.collection.create_index([("title", 1)])
         # Index on tags for filtering
         self.collection.create_index([("tags", 1)])
-        # Index on created_at for sorting
-        self.collection.create_index([("created_at", -1)])
+        # Index on createdAt for sorting
+        self.collection.create_index([("createdAt", -1)])
         # Sparse indexes for ownership filtering
-        self.collection.create_index([("user_id", 1)], sparse=True)
-        self.collection.create_index([("project_id", 1)], sparse=True)
+        self.collection.create_index([("userID", 1)], sparse=True)
+        self.collection.create_index([("projectID", 1)], sparse=True)
         logger.debug("Ensured indexes for polygon_selections collection")
 
     def save_selection(
@@ -60,26 +60,26 @@ class SelectionRepository:
                 - was_replaced: True if existing record was replaced, False if newly inserted
         """
         doc = record.model_dump(by_alias=True, exclude={"id"}, exclude_none=True)
-        doc["updated_at"] = datetime.now(timezone.utc)
+        doc["updatedAt"] = datetime.now(timezone.utc)
 
-        # Only upsert by selection_id if selection_id is provided
+        # Only upsert by selectionID if selection_id is provided
         existing = None
         if record.selection_id:
-            existing = self.collection.find_one({"selection_id": record.selection_id})
+            existing = self.collection.find_one({"selectionID": record.selection_id})
 
         if existing:
             # Replace existing document, keeping the same _id
             mongo_id = str(existing["_id"])
             doc["_id"] = existing["_id"]  # Preserve original _id
-            doc["created_at"] = existing.get("created_at", datetime.now(timezone.utc))  # Preserve creation timestamp
+            doc["createdAt"] = existing.get("createdAt", datetime.now(timezone.utc))  # Preserve creation timestamp
 
             self.collection.replace_one({"_id": existing["_id"]}, doc)
-            logger.info("Replaced existing selection %s (selection_id: %s)", mongo_id, record.selection_id)
+            logger.info("Replaced existing selection %s (selectionID: %s)", mongo_id, record.selection_id)
             return mongo_id, True
         else:
             # Insert new document
-            if "created_at" not in doc:
-                doc["created_at"] = datetime.now(timezone.utc)
+            if "createdAt" not in doc:
+                doc["createdAt"] = datetime.now(timezone.utc)
             result = self.collection.insert_one(doc)
             mongo_id = str(result.inserted_id)
             logger.info("Inserted new selection %s (selection_id: %s, title: %s)", mongo_id, record.selection_id, record.title)
@@ -116,8 +116,8 @@ class SelectionRepository:
         return PolygonSelectionRecord.model_validate(doc)
 
     def get_selection_by_selection_id(self, selection_id: str) -> Optional[PolygonSelectionRecord]:
-        """Fetch selection by frontend-generated selection_id (UUID)."""
-        doc = self.collection.find_one({"selection_id": selection_id})
+        """Fetch selection by frontend-generated selectionID (UUID)."""
+        doc = self.collection.find_one({"selectionID": selection_id})
         if not doc:
             return None
 
@@ -138,7 +138,7 @@ class SelectionRepository:
 
         cursor = (
             self.collection.find(query)
-            .sort("created_at", -1)
+            .sort("createdAt", -1)
             .skip(skip)
             .limit(limit)
         )
@@ -202,7 +202,7 @@ class SelectionRepository:
             return None
 
         update_fields: dict = {
-            "updated_at": datetime.now(timezone.utc)
+            "updatedAt": datetime.now(timezone.utc)
         }
 
         if title is not None:
@@ -212,11 +212,11 @@ class SelectionRepository:
         if tags is not None:
             update_fields["tags"] = tags
         if user_id is not None:
-            update_fields["user_id"] = user_id
+            update_fields["userID"] = user_id
         if project_id is not None:
-            update_fields["project_id"] = project_id
+            update_fields["projectID"] = project_id
 
-        if len(update_fields) == 1:  # Only updated_at
+        if len(update_fields) == 1:  # Only updatedAt
             logger.warning("No fields to update for selection %s", selection_id)
             return self.get_selection(selection_id)
 

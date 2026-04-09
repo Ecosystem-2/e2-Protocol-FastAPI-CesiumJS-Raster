@@ -73,18 +73,18 @@ def query_polygons_stats(asset_ids: list[str], polygon_names: list[str], base_ur
         
         result = response.json()
         print("✅ Query successful!\n")
-        print(f"📊 Results: {result['asset_count']} assets × {result['polygon_count']} polygons\n")
-        
+        print(f"📊 Results: {result['assetCount']} assets × {result['polygonCount']} polygons\n")
+
         # Display results
         for asset_id, asset_data in result["results"].items():
             print(f"Asset ID: {asset_id}")
-            print(f"  Type: {asset_data['index_type']}, Units: {asset_data['units']}")
+            print(f"  Type: {asset_data['indexType']}, Units: {asset_data['units']}")
             print(f"  Filename: {asset_data['metadata']['filename']}")
-            
+
             for poly_result in asset_data["polygons"]:
-                poly_idx = poly_result["polygon_index"]
+                poly_idx = poly_result["polygonIndex"]
                 poly_name = polygon_names[poly_idx]
-                
+
                 if poly_result.get("error"):
                     print(f"    ❌ {poly_name}: {poly_result['error']}")
                 else:
@@ -171,21 +171,21 @@ def query_polygons_pixels(
             # JSON format
             result = response.json()
             print("✅ Pixels extracted!\n")
-            print(f"📊 Results: {result['asset_count']} assets × {result['polygon_count']} polygons\n")
-            
+            print(f"📊 Results: {result['assetCount']} assets × {result['polygonCount']} polygons\n")
+
             # Display summary
             for asset_id, asset_data in result["results"].items():
                 print(f"Asset ID: {asset_id}")
-                print(f"  Type: {asset_data['index_type']}, Units: {asset_data['units']}")
-                
+                print(f"  Type: {asset_data['indexType']}, Units: {asset_data['units']}")
+
                 for poly_result in asset_data["polygons"]:
-                    poly_idx = poly_result["polygon_index"]
+                    poly_idx = poly_result["polygonIndex"]
                     poly_name = polygon_names[poly_idx]
-                    
+
                     if poly_result.get("error"):
                         print(f"    ❌ {poly_name}: {poly_result['error']}")
                     else:
-                        pixel_count = poly_result["pixel_count"]
+                        pixel_count = poly_result["pixelCount"]
                         print(f"    ✅ {poly_name}: {pixel_count:,} pixels")
                         if pixel_count > 0 and pixel_count <= 5:
                             print(f"       Sample pixels: {poly_result['pixels']}")

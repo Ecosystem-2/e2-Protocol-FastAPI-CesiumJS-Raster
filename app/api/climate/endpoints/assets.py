@@ -41,9 +41,9 @@ async def list_assets(
         "limit": limit,
         "skip": skip,
         "count": len(assets),
-        "user_id": user_id,
-        "project_id": project_id,
-        "assets": [asset.model_dump() for asset in assets],
+        "userID": user_id,
+        "projectID": project_id,
+        "assets": [asset.model_dump(by_alias=True) for asset in assets],
     }
 
 
@@ -64,7 +64,7 @@ async def search_assets(
         "query": q,
         "count": len(assets),
         "limit": limit,
-        "assets": [asset.model_dump() for asset in assets],
+        "assets": [asset.model_dump(by_alias=True) for asset in assets],
     }
 
 
@@ -84,8 +84,8 @@ async def get_asset_by_filename(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Asset with filename '{filename}' not found."
         )
-    
-    return asset.model_dump()
+
+    return asset.model_dump(by_alias=True)
 
 
 @router.get(
@@ -96,16 +96,16 @@ async def get_asset_by_filename(
 async def get_asset_by_raster_id(
     raster_id: str = Path(..., description="Frontend-generated UUID (raster_id)")
 ) -> dict:
-    """Get asset by frontend-generated raster_id (UUID)."""
+    """Get asset by frontend-generated rasterID (UUID)."""
     repo = AssetRepository()
     asset = repo.get_asset_by_raster_id(raster_id)
     if not asset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset with raster_id '{raster_id}' not found."
+            detail=f"Asset with rasterID '{raster_id}' not found."
         )
-    
-    return asset.model_dump()
+
+    return asset.model_dump(by_alias=True)
 
 
 @router.get(
@@ -121,8 +121,8 @@ async def get_asset_details(
     asset = repo.get_asset(id)
     if not asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found.")
-    
-    return asset.model_dump()
+
+    return asset.model_dump(by_alias=True)
 
 
 # ============================================================================
@@ -188,9 +188,9 @@ async def delete_asset(
     return {
         "message": "Asset deleted successfully",
         "id": id,
-        "raster_id": asset.raster_id,
-        "mongo_deleted": mongo_deleted,
-        "gcs_blobs_deleted": gcs_deleted,
+        "rasterID": asset.raster_id,
+        "mongoDeleted": mongo_deleted,
+        "gcsBlobsDeleted": gcs_deleted,
     }
 
 
@@ -233,5 +233,5 @@ async def update_asset(
 
     return {
         "message": "Asset updated successfully",
-        "asset": updated_asset.model_dump(),
+        "asset": updated_asset.model_dump(by_alias=True),
     }
