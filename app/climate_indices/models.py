@@ -49,6 +49,14 @@ class AssetStorage(BaseModel):
     cog: StorageInfo
 
 
+class AssetStyle(BaseModel):
+    """Style configuration for asset visualisation."""
+
+    model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
+
+    pallete: Optional[str] = Field(default=None, description="Colour palette for visualisation.")
+
+
 # =============================================================================
 # Asset Models
 # =============================================================================
@@ -118,6 +126,8 @@ class AssetIngestRequest(BaseModel):
     filename: Optional[str] = Field(default=None, description="Original filename (optional provenance).")
     user_id: Optional[str] = Field(default=None, alias="userID", description="Owner user UUID for access control.")
     project_id: Optional[str] = Field(default=None, alias="projectID", description="Project UUID for grouping assets.")
+    custom_group: Optional[str] = Field(default=None, alias="customGroup", description="Custom grouping identifier for organising assets.")
+    style: Optional[AssetStyle] = Field(default=None, description="Style configuration for asset visualisation.")
 
 
 class AssetIngestResult(BaseModel):
@@ -142,6 +152,8 @@ class AssetRecord(BaseModel):
     filename: Optional[str] = None
     user_id: Optional[str] = Field(default=None, alias="userID", description="Owner user UUID for access control.")
     project_id: Optional[str] = Field(default=None, alias="projectID", description="Project UUID for grouping assets.")
+    custom_group: Optional[str] = Field(default=None, alias="customGroup", description="Custom grouping identifier for organising assets.")
+    style: Optional[AssetStyle] = Field(default=None, description="Style configuration for asset visualisation.")
     storage: AssetStorage
     raster: RasterSummary
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), alias="createdAt")
@@ -394,6 +406,7 @@ __all__ = [
     "TimeRange",
     "StorageInfo",
     "AssetStorage",
+    "AssetStyle",
     # Asset
     "RasterSummary",
     "AssetIngestRequest",

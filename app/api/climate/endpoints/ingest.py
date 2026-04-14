@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from app.climate_indices import (
     AssetIngestRequest,
     AssetIngestResult,
+    AssetStyle,
     TimeRange,
     persist_climate_index,
     GCSBlobStore,
@@ -110,10 +111,22 @@ async def ingest_and_store_climate_index(
         description="Project UUID for grouping assets. Frontend responsibility to manage project records.",
         examples=["proj-1234-5678-9abc-def012345678"],
     ),
+    custom_group: Optional[str] = Form(
+        None,
+        description="Custom grouping identifier for organising assets.",
+        examples=["my-custom-group"],
+    ),
+    pallete: Optional[str] = Form(
+        None,
+        description="Colour palette for asset visualisation.",
+        examples=["viridis", "plasma", "inferno"],
+    ),
 ) -> dict:
     """Ingest and persist GeoTIFF to storage with metadata in MongoDB."""
     payload = await file.read()
     _validate_upload(file, payload)
+
+    style = AssetStyle(pallete=pallete) if pallete else None
 
     request = AssetIngestRequest(
         raster_id=raster_id,
@@ -123,6 +136,8 @@ async def ingest_and_store_climate_index(
         filename=file.filename,
         user_id=user_id,
         project_id=project_id,
+        custom_group=custom_group,
+        style=style,
     )
 
     blob_store, repo = _initialise_storage()
