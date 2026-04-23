@@ -15,16 +15,17 @@ The core API for the Heart of Borneo climate visualisation system. Follows a six
 |--------|----------|---------|
 | `POST` | `/ingest` | Ingest and persist a GeoTIFF climate index |
 
-**`POST /ingest`** — Upload a GeoTIFF, validate it, reproject to EPSG:4326, store raw + COG to Google Cloud Storage, and record metadata in MongoDB. If a `raster_id` is provided and already exists, the asset is replaced (upsert).
+**`POST /ingest`** — Upload a GeoTIFF, validate it, reproject to EPSG:4326, store raw + COG to Google Cloud Storage, and record metadata in MongoDB. If a `rasterID` is provided and already exists, the asset is replaced (upsert).
 
 Form parameters:
 - `file` *(required)* — `.tif/.tiff` binary
-- `index_type` *(required)* — Climate index name (e.g. `ppet`, `humid-heat-stress`)
-- `time_start` / `time_end` *(required)* — ISO datetime range covered by the dataset
+- `indexType` *(required)* — Climate index name (e.g. `ppet`, `humid-heat-stress`)
+- `timeStart` / `timeEnd` *(required)* — ISO datetime range covered by the dataset
 - `units` — Measurement units (e.g. `°C`, `mm`, `ratio`)
-- `raster_id` — Frontend-generated UUID. Re-uploading with the same value replaces the existing asset. GCS blobs are named by this UUID
-- `user_id` — Owner user UUID for access control
-- `project_id` — Project UUID for grouping assets
+- `rasterID` — Frontend-generated UUID. Re-uploading with the same value replaces the existing asset. GCS blobs are named by this UUID
+- `userID` — Owner user UUID for access control
+- `projectID` — Project UUID for grouping assets
+- `customGroup` — Custom grouping identifier for organising assets
 
 ---
 
@@ -37,8 +38,8 @@ Form parameters:
 **`GET /tiles/{id}/{z}/{x}/{y}.png`** — Renders a single 256×256 PNG tile from a Cloud Optimized GeoTIFF via rio-tiler. Used by Cesium's `UrlTemplateImageryProvider` for map overlay.
 
 Query parameters:
-- `colormap_name` — Matplotlib colourmap name (default: `viridis`). See `/colourmaps` for available options
-- `scale_min` / `scale_max` — Manual rescale range. Falls back to asset metadata, then tile percentiles
+- `colourmapName` — Matplotlib colourmap name (default: `viridis`). See `/colourmaps` for available options
+- `scaleMin` / `scaleMax` — Manual rescale range. Falls back to asset metadata, then tile percentiles
 
 ---
 
@@ -49,14 +50,14 @@ Query parameters:
 | `GET` | `/assets` | List all ingested assets (paginated, filterable) |
 | `GET` | `/assets/search?q=...` | Fuzzy search by filename, index type, or units |
 | `GET` | `/assets/by-filename/{filename}` | Lookup by original uploaded filename |
-| `GET` | `/assets/by-raster-id/{raster_id}` | Lookup by frontend-generated UUID |
+| `GET` | `/assets/by-raster-id/{rasterID}` | Lookup by frontend-generated UUID |
 | `GET` | `/assets/{id}` | Get full asset details by MongoDB ObjectId |
-| `PUT` | `/assets/{id}` | Update asset metadata (index_type, units, user_id, project_id) |
+| `PUT` | `/assets/{id}` | Update asset metadata (indexType, units, userID, projectID) |
 | `DELETE` | `/assets/{id}` | Delete asset from MongoDB + GCS (irreversible) |
 
-**Filtering**: `GET /assets` supports `user_id` and `project_id` query parameters to scope results by ownership.
+**Filtering**: `GET /assets` supports `userID` and `projectID` query parameters to scope results by ownership.
 
-**Dual ID support**: Polygon query and selection endpoints accept both MongoDB ObjectId and `raster_id` UUID in the `asset_ids` parameter.
+**Dual ID support**: Polygon query and selection endpoints accept both MongoDB ObjectId and `rasterID` UUID in the `assetIds` parameter.
 
 ---
 
@@ -72,8 +73,8 @@ Query parameters:
 **`POST /query/polygons/pixels`** — Extracts individual pixel coordinates and values. Returns CSV (default) or JSON. Useful for downstream analysis or creating point-based visualisations.
 
 Both endpoints accept Form data:
-- `asset_ids` — Comma-separated MongoDB ObjectIds or raster_id UUIDs
-- `polygons_geojson` — JSON array of GeoJSON Polygon objects as string
+- `assetIds` — Comma-separated MongoDB ObjectIds or rasterID UUIDs
+- `polygonsGeojson` — JSON array of GeoJSON Polygon objects as string
 - `format` *(pixels only)* — `csv` or `json`
 
 ---
@@ -85,14 +86,14 @@ Both endpoints accept Form data:
 | `POST` | `/selections/save` | Save polygon selection with computed statistics |
 | `GET` | `/selections` | List all saved selections (paginated, tag-filterable) |
 | `GET` | `/selections/by-name/{name}` | Lookup by title (case-insensitive) |
-| `GET` | `/selections/by-selection-id/{selection_id}` | Lookup by frontend-generated UUID |
+| `GET` | `/selections/by-selection-id/{selectionID}` | Lookup by frontend-generated UUID |
 | `GET` | `/selections/{id}` | Get full selection by MongoDB ObjectId |
 | `PUT` | `/selections/{id}` | Update selection metadata (title, description, tags, ownership) |
 | `DELETE` | `/selections/{id}` | Delete selection permanently |
 
-**`POST /selections/save`** — Persists one or more drawn polygons as a named selection. Automatically computes zonal statistics for all provided assets. Re-saving with the same `selection_id` replaces the existing record.
+**`POST /selections/save`** — Persists one or more drawn polygons as a named selection. Automatically computes zonal statistics for all provided assets. Re-saving with the same `selectionID` replaces the existing record.
 
-Form parameters include: `title`, `geometry` (GeoJSON string), `asset_ids`, `description`, `tags`, `locale_id`, `site_id`, `user_id`, `project_id`, `selection_id`.
+Form parameters include: `title`, `geometry` (GeoJSON string), `assetIds`, `description`, `tags`, `localeID`, `siteID`, `userID`, `projectID`, `selectionID`.
 
 ---
 
@@ -102,7 +103,7 @@ Form parameters include: `title`, `geometry` (GeoJSON string), `asset_ids`, `des
 |--------|----------|---------|
 | `POST` | `/selections/{id}/export-czml` | Generate CZML from a saved selection |
 | `GET` | `/czml/{id}` | Retrieve a saved CZML document |
-| `GET` | `/czml/by-czml-id/{czml_id}` | Lookup by frontend-generated UUID |
+| `GET` | `/czml/by-czml-id/{czmlID}` | Lookup by frontend-generated UUID |
 | `GET` | `/selections/{id}/czml` | List all CZML documents for a selection |
 | `PUT` | `/czml/{id}` | Update CZML document metadata |
 | `DELETE` | `/czml/{id}` | Delete a CZML document |
@@ -113,7 +114,7 @@ Form parameters include: `title`, `geometry` (GeoJSON string), `asset_ids`, `des
 - **`bar`** — 3D bar charts positioned at polygon centroids, height proportional to statistic value
 - **`polygon`** — Extruded coloured polygons with height and fill based on statistic value
 
-Configurable options: `colourmap_name`, `scale_min`/`scale_max`, `value_field` (mean/min/max/std), height multipliers, opacity, labels, interpolation mode.
+Configurable options: `colourmapName`, `scaleMin`/`scaleMax`, `valueField` (mean/min/max/std), height multipliers, opacity, labels, interpolation mode.
 
 ---
 
@@ -153,13 +154,13 @@ The API uses a dual-ID approach:
 | ID Type | Format | Purpose | Example |
 |---------|--------|---------|---------|
 | MongoDB `_id` | 24-char hex ObjectId | Internal primary key, used in URL paths as `{id}` | `6632a1f4e8b3c9d1a0f5e2b7` |
-| `raster_id` | UUID v4 | Frontend-generated UUID for assets | `550e8400-e29b-41d4-a716-446655440000` |
-| `selection_id` | UUID v4 | Frontend-generated UUID for selections | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` |
-| `czml_id` | UUID v4 | Frontend-generated UUID for CZML documents | `b2c3d4e5-f6a7-8901-bcde-f12345678901` |
+| `rasterID` | UUID v4 | Frontend-generated UUID for assets | `550e8400-e29b-41d4-a716-446655440000` |
+| `selectionID` | UUID v4 | Frontend-generated UUID for selections | `a1b2c3d4-e5f6-7890-abcd-ef1234567890` |
+| `czmlID` | UUID v4 | Frontend-generated UUID for CZML documents | `b2c3d4e5-f6a7-8901-bcde-f12345678901` |
 
 **Lookup endpoints**: Each entity has a `/by-{type}-id/{uuid}` endpoint for UUID-based retrieval.
 
-**Upsert behaviour**: Re-uploading with the same UUID replaces the existing record while preserving `_id` and `created_at`.
+**Upsert behaviour**: Re-uploading with the same UUID replaces the existing record while preserving `_id` and `createdAt`.
 
 ---
 
@@ -169,10 +170,10 @@ All entities accept optional ownership fields:
 
 | Field | Description |
 |-------|-------------|
-| `user_id` | Owner user UUID — frontend responsibility to manage user records |
-| `project_id` | Project UUID — groups assets/selections/CZML under a project |
+| `userID` | Owner user UUID — frontend responsibility to manage user records |
+| `projectID` | Project UUID — groups assets/selections/CZML under a project |
 
-**Filtering**: `GET /assets` supports `?user_id=...&project_id=...` query parameters.
+**Filtering**: `GET /assets` supports `?userID=...&projectID=...` query parameters.
 
 ---
 
@@ -184,7 +185,7 @@ All `POST` and `PUT` endpoints use `multipart/form-data`, not `application/json`
 ```javascript
 const formData = new FormData();
 formData.append('file', fileInput.files[0]);
-formData.append('index_type', 'ppet');
+formData.append('indexType', 'ppet');
 // ...
 const response = await fetch('/api/climate-indices/ingest', {
   method: 'POST',
@@ -196,7 +197,7 @@ const response = await fetch('/api/climate-indices/ingest', {
 Standard HTTP error codes with JSON detail:
 ```json
 {
-  "detail": "Asset with raster_id '...' not found."
+  "detail": "Asset with rasterID '...' not found."
 }
 ```
 

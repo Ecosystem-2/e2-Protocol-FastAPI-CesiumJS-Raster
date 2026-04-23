@@ -23,13 +23,13 @@ logger = get_logger(__name__)
     "/assets",
     summary="List all ingested climate index assets.",
     description="Retrieve a paginated list of assets stored in MongoDB. "
-                "Filter by user_id and/or project_id to retrieve only assets owned by a specific user or project.",
+                "Filter by userID and/or projectID to retrieve only assets owned by a specific user or project.",
 )
 async def list_assets(
     limit: int = Query(100, ge=1, le=500, description="Maximum number of assets to return"),
     skip: int = Query(0, ge=0, description="Number of assets to skip for pagination"),
-    user_id: Optional[str] = Query(None, description="Filter by owner user UUID"),
-    project_id: Optional[str] = Query(None, description="Filter by project UUID"),
+    user_id: Optional[str] = Query(None, alias="userID", description="Filter by owner user UUID"),
+    project_id: Optional[str] = Query(None, alias="projectID", description="Filter by project UUID"),
 ) -> dict:
     """List assets with pagination and optional ownership filtering."""
     repo = AssetRepository()
@@ -50,13 +50,13 @@ async def list_assets(
 @router.get(
     "/assets/search",
     summary="Search assets by filename, index type, or units.",
-    description="Fuzzy search across filename, index_type, and units fields using case-insensitive regex.",
+    description="Fuzzy search across filename, indexType, and units fields using case-insensitive regex.",
 )
 async def search_assets(
     q: str,
     limit: int = 50,
 ) -> dict:
-    """Search assets using fuzzy matching on filename, index_type, or units."""
+    """Search assets using fuzzy matching on filename, indexType, or units."""
     repo = AssetRepository()
     assets = repo.search_assets(query=q, limit=limit)
     
@@ -89,20 +89,20 @@ async def get_asset_by_filename(
 
 
 @router.get(
-    "/assets/by-raster-id/{raster_id}",
-    summary="Get asset by frontend-generated raster_id (UUID).",
+    "/assets/by-raster-id/{rasterID}",
+    summary="Get asset by frontend-generated rasterID (UUID).",
     description="Retrieve asset metadata using the frontend-generated UUID for cross-system reference.",
 )
 async def get_asset_by_raster_id(
-    raster_id: str = Path(..., description="Frontend-generated UUID (raster_id)")
+    rasterID: str = Path(..., description="Frontend-generated UUID (rasterID)")
 ) -> dict:
     """Get asset by frontend-generated rasterID (UUID)."""
     repo = AssetRepository()
-    asset = repo.get_asset_by_raster_id(raster_id)
+    asset = repo.get_asset_by_raster_id(rasterID)
     if not asset:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Asset with rasterID '{raster_id}' not found."
+            detail=f"Asset with rasterID '{rasterID}' not found."
         )
 
     return asset.model_dump(by_alias=True)
@@ -198,14 +198,14 @@ async def delete_asset(
     "/assets/{id}",
     summary="Update asset metadata.",
     description="Update metadata fields for an existing asset. Only provided fields are updated. "
-                "This does not replace the GeoTIFF file — use /ingest with the same raster_id for that.",
+                "This does not replace the GeoTIFF file — use /ingest with the same rasterID for that.",
 )
 async def update_asset(
     id: str = Path(..., description="MongoDB ObjectId of the asset"),
-    index_type: Optional[str] = Form(None, description="Climate index name to update"),
+    index_type: Optional[str] = Form(None, alias="indexType", description="Climate index name to update"),
     units: Optional[str] = Form(None, description="Units of the raster values"),
-    user_id: Optional[str] = Form(None, description="Owner user UUID to update"),
-    project_id: Optional[str] = Form(None, description="Project UUID to update"),
+    user_id: Optional[str] = Form(None, alias="userID", description="Owner user UUID to update"),
+    project_id: Optional[str] = Form(None, alias="projectID", description="Project UUID to update"),
 ) -> dict:
     """Update asset metadata fields."""
     repo = AssetRepository()
@@ -214,7 +214,7 @@ async def update_asset(
     if all(v is None for v in [index_type, units, user_id, project_id]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one field (index_type, units, user_id, project_id) must be provided."
+            detail="At least one field (indexType, units, userID, projectID) must be provided."
         )
 
     updated_asset = repo.update_asset_metadata(
