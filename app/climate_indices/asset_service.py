@@ -94,6 +94,8 @@ def persist_climate_index(
         filename=request.filename,
         user_id=request.user_id,
         project_id=request.project_id,
+        custom_group=request.custom_group,
+        style=request.style,
         storage=storage,
         raster=ingest.raster,
     )

@@ -11,6 +11,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile, status
 from app.climate_indices import (
     AssetIngestRequest,
     AssetIngestResult,
+    AssetStyle,
     TimeRange,
     persist_climate_index,
     GCSBlobStore,
@@ -131,6 +132,8 @@ async def ingest_and_store_climate_index(
     payload = await file.read()
     _validate_upload(file, payload)
 
+    style = AssetStyle(pallete=pallete) if pallete else None
+
     request = AssetIngestRequest(
         raster_id=raster_id,
         index_type=index_type,
@@ -139,6 +142,8 @@ async def ingest_and_store_climate_index(
         filename=file.filename,
         user_id=user_id,
         project_id=project_id,
+        custom_group=custom_group,
+        style=style,
     )
 
     blob_store, repo = _initialise_storage()
