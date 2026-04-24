@@ -95,7 +95,8 @@ def _fetch_assets(asset_id_list: list[str], repo: AssetRepository) -> dict:
     Fetch assets from repository and validate all exist.
     
     Supports both MongoDB ObjectIds and frontend raster_id UUIDs.
-    Returns dict keyed by resolved MongoDB ObjectId.
+    Returns dict keyed by the original input asset_id (not the resolved MongoDB ObjectId),
+    so callers can match results back to the IDs they sent.
     """
     assets = {}
     missing_ids = []
@@ -105,7 +106,7 @@ def _fetch_assets(asset_id_list: list[str], repo: AssetRepository) -> dict:
         if not asset:
             missing_ids.append(asset_id)
         else:
-            assets[resolved_id] = asset
+            assets[asset_id] = asset  # key by original input ID
     
     if missing_ids:
         raise HTTPException(

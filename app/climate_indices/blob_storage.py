@@ -142,6 +142,7 @@ class GCSBlobStore:
 
         blob.delete()
         logger.info("Deleted blob from GCS: %s", uri)
+        _clear_gdal_vsi_cache()
         return True
 
     def delete_blobs_by_id(self, blob_id: str) -> int:
@@ -169,4 +170,6 @@ class GCSBlobStore:
                 logger.info("Deleted blob gs://%s/%s", self.bucket_name, name)
                 deleted_count += 1
 
+        if deleted_count:
+            _clear_gdal_vsi_cache()
         return deleted_count

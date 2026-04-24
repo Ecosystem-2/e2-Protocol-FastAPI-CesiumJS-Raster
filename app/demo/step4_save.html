@@ -370,7 +370,7 @@ response = requests.post(
 
         document.getElementById('savedId').textContent = response._id || response.id;
         document.getElementById('savedName').textContent = response.title;
-        document.getElementById('savedDate').textContent = Utils.formatDate(response.created_at);
+        document.getElementById('savedDate').textContent = Utils.formatDate(response.createdAt || response.created_at);
         document.getElementById('saveSuccess').style.display = 'block';
         document.getElementById('nextBtn').disabled = false;
 

@@ -166,8 +166,8 @@ class AssetRepository:
         return AssetRecord.model_validate(doc)
 
     def get_asset_by_raster_id(self, raster_id: str) -> Optional[AssetRecord]:
-        """Get asset by frontend-generated rasterID (UUID)."""
-        doc = self.collection.find_one({"rasterID": raster_id})
+        """Get asset by frontend-generated rasterID (UUID). Supports both camelCase and legacy snake_case field names."""
+        doc = self.collection.find_one({"$or": [{"rasterID": raster_id}, {"raster_id": raster_id}]})
         if not doc:
             return None
         if "_id" in doc:

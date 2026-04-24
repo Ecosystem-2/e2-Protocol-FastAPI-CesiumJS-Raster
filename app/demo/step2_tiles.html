@@ -228,8 +228,8 @@
         }
 
         allSlices = assets.map((asset, idx) => {
-          const timeRange = asset.time_range || {};
-          const indexType = asset.index_type || 'unknown';
+          const timeRange = asset.timeRange || {};
+          const indexType = asset.indexType || 'unknown';
           const startYear = timeRange.start ? new Date(timeRange.start).getFullYear() : 'N/A';
           const endYear = timeRange.end ? new Date(timeRange.end).getFullYear() : 'N/A';
           
@@ -254,9 +254,9 @@
           }
           
           return {
-            id: asset.id,
+            id: asset._id,
             label: label,
-            assetId: asset.id,
+            assetId: asset.rasterID || asset._id,
             indexType: indexType,
             filename: asset.filename,
             timeRange: timeRange,
