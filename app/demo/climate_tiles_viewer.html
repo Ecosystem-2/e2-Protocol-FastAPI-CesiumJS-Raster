@@ -178,10 +178,10 @@
         
         // Convert API assets to slice format
         allSlices = assets.map((asset, idx) => {
-          const timeRange = asset.time_range || {};
+          const timeRange = asset.timeRange || {};
           const startYear = timeRange.start ? new Date(timeRange.start).getFullYear() : 'Unknown';
           const endYear = timeRange.end ? new Date(timeRange.end).getFullYear() : 'Unknown';
-          const indexType = asset.index_type || 'unknown';
+          const indexType = asset.indexType || 'unknown';
           
           // Determine bounds from raster metadata
           let rect;
@@ -208,7 +208,7 @@
           return {
             id: `climate-${idx}`,
             label: label,
-            assetId: asset.id,
+            assetId: asset.rasterID || asset._id,
             indexType: indexType,
             start: timeRange.start || null,
             end: timeRange.end || null,

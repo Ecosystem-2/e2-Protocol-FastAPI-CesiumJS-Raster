@@ -67,7 +67,7 @@ def _parse_query_inputs(asset_ids: str, polygons_geojson: str) -> tuple[list[str
     if not asset_id_list:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one asset_id is required."
+            detail="At least one assetId is required."
         )
     
     # Parse polygons array
@@ -95,7 +95,8 @@ def _fetch_assets(asset_id_list: list[str], repo: AssetRepository) -> dict:
     Fetch assets from repository and validate all exist.
     
     Supports both MongoDB ObjectIds and frontend raster_id UUIDs.
-    Returns dict keyed by resolved MongoDB ObjectId.
+    Returns dict keyed by the original input asset_id (not the resolved MongoDB ObjectId),
+    so callers can match results back to the IDs they sent.
     """
     assets = {}
     missing_ids = []
@@ -105,7 +106,7 @@ def _fetch_assets(asset_id_list: list[str], repo: AssetRepository) -> dict:
         if not asset:
             missing_ids.append(asset_id)
         else:
-            assets[resolved_id] = asset
+            assets[asset_id] = asset  # key by original input ID
     
     if missing_ids:
         raise HTTPException(
@@ -256,8 +257,8 @@ def _generate_pixels_json(assets: dict, polygons: list) -> Response:
     description="Compute zonal statistics from GCS-stored COGs within polygon geometries. Supports multiple assets and multiple polygons.",
 )
 async def query_polygons_stats(
-    asset_ids: str = Form(..., description="Comma-separated asset IDs (MongoDB ObjectId or raster_id UUID)."),
-    polygons_geojson: str = Form(..., description='JSON array of Polygon GeoJSON objects as string (e.g., \'[{"type":"Polygon","coordinates":[[[117.5,4.8],[117.6,4.8],[117.6,4.9],[117.5,4.9],[117.5,4.8]]]}]\').'),
+    asset_ids: str = Form(..., alias="assetIds", description="Comma-separated asset IDs (MongoDB ObjectId or rasterID UUID)."),
+    polygons_geojson: str = Form(..., alias="polygonsGeojson", description='JSON array of Polygon GeoJSON objects as string (e.g., \'[{"type":"Polygon","coordinates":[[[117.5,4.8],[117.6,4.8],[117.6,4.9],[117.5,4.9],[117.5,4.8]]]}]\').'),
 ) -> dict:
     """
     Compute zonal statistics for multiple assets across multiple polygons.
@@ -322,8 +323,8 @@ async def query_polygons_stats(
     description="Extract all raw pixel values from GCS-stored COGs within polygon geometries. Returns CSV by default or JSON if format=json.",
 )
 async def query_polygons_pixels(
-    asset_ids: str = Form(..., description="Comma-separated asset IDs (MongoDB ObjectId or raster_id UUID)."),
-    polygons_geojson: str = Form(..., description='JSON array of Polygon GeoJSON objects as string (e.g., \'[{"type":"Polygon","coordinates":[[[117.5,4.8],[117.6,4.8],[117.6,4.9],[117.5,4.9],[117.5,4.8]]]}]\').'),
+    asset_ids: str = Form(..., alias="assetIds", description="Comma-separated asset IDs (MongoDB ObjectId or rasterID UUID)."),
+    polygons_geojson: str = Form(..., alias="polygonsGeojson", description='JSON array of Polygon GeoJSON objects as string (e.g., \'[{"type":"Polygon","coordinates":[[[117.5,4.8],[117.6,4.8],[117.6,4.9],[117.5,4.9],[117.5,4.8]]]}]\').'),
     format: str = Form("csv", description="Output format: 'csv' or 'json'. Default is 'csv'."),
 ) -> Response:
     """

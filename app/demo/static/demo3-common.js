@@ -146,8 +146,8 @@ const API = {
   async queryPolygonsBatch(assetIds, polygonGeojsonArray) {
     const formData = new FormData();
     const assetIdString = Array.isArray(assetIds) ? assetIds.join(',') : assetIds;
-    formData.append('asset_ids', assetIdString);
-    formData.append('polygons_geojson', JSON.stringify(polygonGeojsonArray));
+    formData.append('assetIds', assetIdString);
+    formData.append('polygonsGeojson', JSON.stringify(polygonGeojsonArray));
     
     const response = await fetch(`${API_BASE}/query/polygons/stats`, {
       method: 'POST',
@@ -166,8 +166,8 @@ const API = {
   async exportPixelData(assetIds, polygonGeojsonArray) {
     const formData = new FormData();
     const assetIdString = Array.isArray(assetIds) ? assetIds.join(',') : assetIds;
-    formData.append('asset_ids', assetIdString);
-    formData.append('polygons_geojson', JSON.stringify(polygonGeojsonArray));
+    formData.append('assetIds', assetIdString);
+    formData.append('polygonsGeojson', JSON.stringify(polygonGeojsonArray));
     formData.append('format', 'csv');
     
     const response = await fetch(`${API_BASE}/query/polygons/pixels`, {
@@ -198,21 +198,21 @@ const API = {
       localeId = this.generateUUID();
       WorkflowState.set('locale_id', localeId);
     }
-    formData.append('locale_id', localeId);
+    formData.append('localeID', localeId);
     
     // Support both single asset and multiple assets
     if (typeof assetId === 'string' && assetId.includes(',')) {
       // Multiple asset IDs
-      formData.append('asset_ids', assetId);
+      formData.append('assetIds', assetId);
     } else {
       // Single asset ID - convert to comma-separated format
-      formData.append('asset_ids', assetId);
+      formData.append('assetIds', assetId);
     }
 
     // Optional ownership fields
-    if (selectionId) formData.append('selection_id', selectionId);
-    if (userId) formData.append('user_id', userId);
-    if (projectId) formData.append('project_id', projectId);
+    if (selectionId) formData.append('selectionID', selectionId);
+    if (userId) formData.append('userID', userId);
+    if (projectId) formData.append('projectID', projectId);
     
     const response = await fetch(`${API_BASE}/selections/save`, {
       method: 'POST',
@@ -262,10 +262,10 @@ const API = {
   // Export selection as CZML
   async exportCZML(selectionId, indexType, visualisationType, colourmapName, valueField) {
     const formData = new FormData();
-    formData.append('index_type', indexType);
-    formData.append('visualisation_type', visualisationType);
-    formData.append('colourmap_name', colourmapName);
-    formData.append('value_field', valueField);
+    formData.append('indexType', indexType);
+    formData.append('visualisationType', visualisationType);
+    formData.append('colourmapName', colourmapName);
+    formData.append('valueField', valueField);
     
     const response = await fetch(`${API_BASE}/selections/${selectionId}/export-czml`, {
       method: 'POST',

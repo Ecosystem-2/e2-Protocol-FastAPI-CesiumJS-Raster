@@ -434,13 +434,13 @@ stats = response.json()
 
         // Find asset metadata from allSlices
         const assetMeta = allSlices.find(s => s.assetId === result.assetId);
-        const assetLabel = assetMeta?.metadata?.index_type || result.assetId.substring(0, 8);
+        const assetLabel = assetMeta?.metadata?.indexType || assetMeta?.metadata?.index_type || result.assetId.substring(0, 8);
 
         formatted["Assets"][assetLabel] = {
           "Asset ID": result.assetId,
-          "Index Type": assetResult.index_type || "N/A",
+          "Index Type": assetResult.indexType || assetResult.index_type || "N/A",
           "Units": assetResult.units || "N/A",
-          "Time Range": assetResult.metadata?.time_range || {},
+          "Time Range": assetResult.metadata?.timeRange || assetResult.metadata?.time_range || {},
           "Polygons": {}
         };
 
@@ -485,9 +485,9 @@ stats = response.json()
 
       const formatted = {
         "Asset ID": currentSlice.assetId,
-        "Index Type": assetResult.index_type || "N/A",
+        "Index Type": assetResult.indexType || assetResult.index_type || "N/A",
         "Units": assetResult.units || "N/A",
-        "Time Range": assetResult.metadata?.time_range || {},
+        "Time Range": assetResult.metadata?.timeRange || assetResult.metadata?.time_range || {},
         "Polygons": {}
       };
 

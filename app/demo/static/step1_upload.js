@@ -191,21 +191,21 @@ async function handleUpload() {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('index_type', indexType);
-      formData.append('time_start', convertToISOString(timeStart));
-      formData.append('time_end', convertToISOString(timeEnd));
+      formData.append('indexType', indexType);
+      formData.append('timeStart', convertToISOString(timeStart));
+      formData.append('timeEnd', convertToISOString(timeEnd));
       if (units) formData.append('units', units);
 
       // Read raster_id: per-file field when multi, global field when single
       if (isMulti) {
         const fileRasterId = document.getElementById(`fileRasterId-${i}`)?.value?.trim();
-        if (fileRasterId) formData.append('raster_id', fileRasterId);
+        if (fileRasterId) formData.append('rasterID', fileRasterId);
       } else if (userRasterId) {
-        formData.append('raster_id', userRasterId);
+        formData.append('rasterID', userRasterId);
       }
 
-      if (userId) formData.append('user_id', userId);
-      if (projectId) formData.append('project_id', projectId);
+      if (userId) formData.append('userID', userId);
+      if (projectId) formData.append('projectID', projectId);
 
       const response = await fetch(`${API_BASE}/ingest`, {
         method: 'POST',
@@ -214,7 +214,17 @@ async function handleUpload() {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: response.statusText }));
-        throw new Error(error.detail || `HTTP ${response.status}`);
+        let detail = error.detail;
+        if (Array.isArray(detail)) {
+          // FastAPI validation errors: [{loc: [...], msg: "...", type: "..."}, ...]
+          detail = detail.map(e => {
+            const loc = Array.isArray(e.loc) ? e.loc.join(' → ') : '';
+            return loc ? `${loc}: ${e.msg}` : e.msg;
+          }).join('; ');
+        } else if (detail && typeof detail === 'object') {
+          detail = JSON.stringify(detail);
+        }
+        throw new Error(detail || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -238,7 +248,7 @@ async function handleUpload() {
   if (uploadedAssets.length > 0) {
     const lastAsset = uploadedAssets[uploadedAssets.length - 1];
     WorkflowState.set('uploaded_asset', lastAsset);
-    WorkflowState.set('current_asset_id', lastAsset.asset_id);
+    WorkflowState.set('current_asset_id', lastAsset.assetID || lastAsset.asset_id);
     WorkflowState.set('current_asset', lastAsset.asset);
     WorkflowState.set('uploaded_assets', uploadedAssets);
     // Persist ownership fields for downstream steps
@@ -272,7 +282,7 @@ function displayUploadResults(results) {
       const d = r.data;
       const sizes = d.raster?.sizes;
       const dims = (sizes?.x && sizes?.y) ? `${sizes.x} × ${sizes.y} px` : 'N/A';
-      const tr = d.asset?.time_range;
+      const tr = d.asset?.timeRange || d.asset?.time_range;
       const timeStr = (tr?.start && tr?.end)
         ? `${new Date(tr.start).toLocaleDateString()} – ${new Date(tr.end).toLocaleDateString()}`
         : 'N/A';
@@ -288,9 +298,9 @@ function displayUploadResults(results) {
             ${replacedHtml}
           </div>
           <div class="upload-result-details">
-            <div><span class="detail-label">Asset ID:</span> <span class="detail-value">${d.asset_id || 'N/A'}</span></div>
-            <div><span class="detail-label">raster_id:</span> <span class="detail-value">${d.raster_id || '—'}</span></div>
-            <div><span class="detail-label">Index:</span> <span class="detail-value">${d.asset?.index_type || 'N/A'}</span></div>
+            <div><span class="detail-label">Asset ID:</span> <span class="detail-value">${d.assetID || d.asset_id || 'N/A'}</span></div>
+            <div><span class="detail-label">raster_id:</span> <span class="detail-value">${d.rasterID || d.raster_id || '—'}</span></div>
+            <div><span class="detail-label">Index:</span> <span class="detail-value">${d.asset?.indexType || d.asset?.index_type || 'N/A'}</span></div>
             <div><span class="detail-label">CRS:</span> <span class="detail-value">${d.raster?.epsg ? 'EPSG:' + d.raster.epsg : 'N/A'}</span></div>
             <div><span class="detail-label">Size:</span> <span class="detail-value">${dims}</span></div>
             <div><span class="detail-label">Time:</span> <span class="detail-value">${timeStr}</span></div>

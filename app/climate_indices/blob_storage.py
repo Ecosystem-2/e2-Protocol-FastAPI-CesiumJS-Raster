@@ -2,12 +2,58 @@
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
+import pathlib
 import uuid
 from typing import Optional
 
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _clear_gdal_vsi_cache() -> None:
+    """Clear GDAL's VSI curl cache so newly uploaded GCS files are immediately accessible.
+
+    GDAL caches GCS directory listings and negative results (file-not-found) via its
+    /vsigs/ virtual filesystem layer. Without clearing this cache, a file uploaded to
+    GCS after the process started will appear missing to GDAL/rio-tiler until the
+    cache expires or the container restarts.
+
+    Strategy:
+      1. System-installed GDAL (Linux/Docker with libgdal-dev installed via apt).
+      2. rasterio's bundled GDAL dylib/so (macOS .dylibs/, Linux .libs/).
+    """
+    # 1. System GDAL (Linux/Docker)
+    lib_name = ctypes.util.find_library("gdal")
+    if lib_name:
+        try:
+            lib = ctypes.CDLL(lib_name)
+            lib.VSICurlClearCache.restype = None
+            lib.VSICurlClearCache()
+            logger.debug("Cleared GDAL VSI cache via system library: %s", lib_name)
+            return
+        except OSError:
+            pass
+
+    # 2. rasterio's bundled GDAL (macOS .dylibs/, Linux .libs/)
+    try:
+        import rasterio  # type: ignore
+        rasterio_dir = pathlib.Path(rasterio.__file__).parent
+        for dylib_dir in [rasterio_dir / ".dylibs", rasterio_dir / ".libs"]:
+            if dylib_dir.exists():
+                gdal_libs = [f for f in dylib_dir.iterdir() if "libgdal" in f.name.lower()]
+                if gdal_libs:
+                    lib = ctypes.CDLL(str(gdal_libs[0]))
+                    lib.VSICurlClearCache.restype = None
+                    lib.VSICurlClearCache()
+                    logger.debug("Cleared GDAL VSI cache via rasterio bundled library: %s", gdal_libs[0])
+                    return
+    except Exception:
+        pass
+
+    logger.warning("Could not clear GDAL VSI cache: no suitable GDAL library found")
 
 
 class GCSBlobStore:
@@ -70,6 +116,7 @@ class GCSBlobStore:
         blob.upload_from_string(payload, content_type=content_type or "image/tiff")
         uri = f"gs://{self.bucket_name}/{name}"
         logger.info("Stored blob in GCS at %s (%s bytes)", uri, len(payload))
+        _clear_gdal_vsi_cache()
         return uri
 
     def delete_blob(self, uri: str) -> bool:
@@ -95,6 +142,7 @@ class GCSBlobStore:
 
         blob.delete()
         logger.info("Deleted blob from GCS: %s", uri)
+        _clear_gdal_vsi_cache()
         return True
 
     def delete_blobs_by_id(self, blob_id: str) -> int:
@@ -122,4 +170,6 @@ class GCSBlobStore:
                 logger.info("Deleted blob gs://%s/%s", self.bucket_name, name)
                 deleted_count += 1
 
+        if deleted_count:
+            _clear_gdal_vsi_cache()
         return deleted_count

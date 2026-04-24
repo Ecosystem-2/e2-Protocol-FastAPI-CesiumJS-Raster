@@ -104,9 +104,9 @@ async function loadSelections() {
     // Display selections as clickable cards
     const html = selections.map(sel => {
       const statsCount = sel.statistics_count || 0;
-      const createdDate = new Date(sel.created_at).toLocaleDateString();
+      const createdDate = new Date(sel.createdAt || sel.created_at).toLocaleDateString();
       return `
-      <div class="selection-card" onclick="selectSelection('${sel.id}')" data-id="${sel.id}">
+      <div class="selection-card" onclick="selectSelection('${sel._id || sel.id}')" data-id="${sel._id || sel.id}">
         <div style="display: flex; justify-content: space-between; align-items: start;">
           <div style="flex: 1;">
             <h4 style="margin: 0 0 8px 0; font-size: 14px; color: #e2e8f0;">${sel.title}</h4>
@@ -114,7 +114,7 @@ async function loadSelections() {
               ${sel.description || 'No description'}
             </p>
             <div style="font-size: 11px; color: #64748b; font-family: monospace;">
-              <div>Selection ID: ${sel.id}</div>
+              <div>Selection ID: ${sel._id || sel.id}</div>
               <div>Created: ${createdDate}</div>
               <div>Statistics: ${statsCount} index(es)</div>
               ${sel.tags && sel.tags.length > 0 ? `<div>Tags: ${sel.tags.join(', ')}</div>` : ''}
@@ -136,8 +136,8 @@ async function loadSelections() {
 
     // Auto-select if coming from step 4
     const savedFromStep4 = WorkflowState.get('saved_selection');
-    if (savedFromStep4 && (savedFromStep4._id || savedFromStep4.id)) {
-      selectSelection(savedFromStep4._id || savedFromStep4.id);
+    if (savedFromStep4 && (savedFromStep4._id || savedFromStep4.id || savedFromStep4.selectionID)) {
+      selectSelection(savedFromStep4._id || savedFromStep4.id || savedFromStep4.selectionID);
     }
 
   } catch (error) {
@@ -168,7 +168,7 @@ async function selectSelection(selectionId) {
     // Show export panel
     document.getElementById('exportPanel').style.display = 'block';
     document.getElementById('selectedName').textContent = fullSelection.title;
-    document.getElementById('selectedId').textContent = fullSelection.id || fullSelection._id;
+    document.getElementById('selectedId').textContent = fullSelection._id || fullSelection.id;
 
     // Populate index types from selection polygons
     populateIndexTypes(fullSelection);
@@ -193,8 +193,8 @@ function populateIndexTypes(selection) {
     for (const polygon of selection.polygons) {
       if (polygon.statistics && Array.isArray(polygon.statistics)) {
         for (const stat of polygon.statistics) {
-          if (stat.index_type) {
-            indexTypes.add(stat.index_type);
+          if (stat.indexType) {
+            indexTypes.add(stat.indexType);
           }
         }
       }
@@ -234,44 +234,44 @@ async function exportCZML() {
   
   // Build export options
   const exportOptions = {
-    index_type: indexType,
-    visualisation_type: visualisationType,
-    colourmap_name: colourmapName,
-    value_field: valueField,
-    interpolation_mode: interpolationMode,
-    save_to_db: true
+    indexType: indexType,
+    visualisationType: visualisationType,
+    colourmapName: colourmapName,
+    valueField: valueField,
+    interpolationMode: interpolationMode,
+    saveToDb: true
   };
 
   // Optional ownership fields
   const czmlId = document.getElementById('czmlId')?.value?.trim();
   const userId = document.getElementById('userId')?.value?.trim();
   const projectId = document.getElementById('projectId')?.value?.trim();
-  if (czmlId) exportOptions.czml_id = czmlId;
-  if (userId) exportOptions.user_id = userId;
-  if (projectId) exportOptions.project_id = projectId;
+  if (czmlId) exportOptions.czmlID = czmlId;
+  if (userId) exportOptions.userID = userId;
+  if (projectId) exportOptions.projectID = projectId;
   
   // Add type-specific options
   if (visualisationType === 'polygon') {
     const heightMultiplier = document.getElementById('polygonHeightMultiplier');
     const fillOpacity = document.getElementById('polygonFillOpacity');
     if (heightMultiplier) {
-      exportOptions.polygon_height_multiplier = parseFloat(heightMultiplier.value) || 1000;
+      exportOptions.polygonHeightMultiplier = parseFloat(heightMultiplier.value) || 1000;
     }
     if (fillOpacity) {
-      exportOptions.polygon_fill_opacity = parseFloat(fillOpacity.value) || 0.7;
+      exportOptions.polygonFillOpacity = parseFloat(fillOpacity.value) || 0.7;
     }
   } else if (visualisationType === 'bar') {
     const barHeight = document.getElementById('barHeightMultiplier');
     const barRadius = document.getElementById('barRadiusMultiplier');
     const barMinRadius = document.getElementById('barMinimumRadius');
     if (barHeight) {
-      exportOptions.bar_height_multiplier = parseFloat(barHeight.value) || 10000;
+      exportOptions.barHeightMultiplier = parseFloat(barHeight.value) || 10000;
     }
     if (barRadius) {
-      exportOptions.bar_radius_multiplier = parseFloat(barRadius.value) || 10;
+      exportOptions.barRadiusMultiplier = parseFloat(barRadius.value) || 10;
     }
     if (barMinRadius) {
-      exportOptions.bar_minimum_radius = parseFloat(barMinRadius.value) || 500;
+      exportOptions.barMinimumRadius = parseFloat(barMinRadius.value) || 500;
     }
   }
 
@@ -282,18 +282,18 @@ async function exportCZML() {
     const response = await API.exportCZMLWithOptions(selectionId, exportOptions);
 
     // New response format includes czml_id and czml_document
-    czmlData = response.czml_document || response;
+    czmlData = response.czmlDocument || response.czml_document || response;
     
     if (!czmlData || !Array.isArray(czmlData)) {
       throw new Error('Invalid CZML response format');
     }
     
     WorkflowState.set('czml_data', czmlData);
-    WorkflowState.set('czml_id', response.czml_id);
+    WorkflowState.set('czml_id', response.czmlID || response.czml_id);
     WorkflowState.completeStep(5);
 
-    document.getElementById('czmlDocId').textContent = response.czml_id || czmlData[0]?.id || 'Unknown';
-    document.getElementById('czmlPackets').textContent = response.packet_count || czmlData.length;
+    document.getElementById('czmlDocId').textContent = response.czmlID || response.czml_id || czmlData[0]?.id || 'Unknown';
+    document.getElementById('czmlPackets').textContent = response.packetCount || response.packet_count || czmlData.length;
     document.getElementById('exportSuccess').style.display = 'block';
     document.getElementById('loadBtn').disabled = false;
 
