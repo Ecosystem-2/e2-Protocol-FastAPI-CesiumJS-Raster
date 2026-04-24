@@ -7,7 +7,7 @@ from typing import Optional, List
 
 from fastapi import APIRouter, Form, HTTPException, Path, Query, status
 from fastapi.responses import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.climate_indices import CZMLExportOptions, CZMLRecord, SelectionRepository, CZMLRepository
 from app.climate_indices.czml_generate import CZMLExportService
@@ -25,13 +25,16 @@ logger = get_logger(__name__)
 
 class CZMLExportResponse(BaseModel):
     """Response model for CZML export."""
-    czml_id: str
-    selection_ref: str  # MongoDB ObjectId of the source selection
-    index_type: str
-    visualisation_type: str
-    packet_count: int
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    czml_id: str = Field(..., alias="czmlID")
+    selection_ref: str = Field(..., alias="selectionRef")  # MongoDB ObjectId of the source selection
+    index_type: str = Field(..., alias="indexType")
+    visualisation_type: str = Field(..., alias="visualisationType")
+    packet_count: int = Field(..., alias="packetCount")
     replaced: bool
-    czml_document: List[dict]
+    czml_document: List[dict] = Field(..., alias="czmlDocument")
 
 
 class ColourmapListResponse(BaseModel):
@@ -98,22 +101,22 @@ async def get_colourmaps_by_category() -> ColourmapCategoriesResponse:
 )
 async def export_selection_czml(
     id: str = Path(..., description="MongoDB ObjectId of the selection"),
-    index_type: str = Form(..., description="Climate index type (ppet, wbgt, etc.)"),
-    visualisation_type: str = Form("polygon", description="bar or polygon"),
-    colourmap_name: str = Form("viridis", description="Matplotlib colourmap name"),
-    scale_min: Optional[float] = Form(None),
-    scale_max: Optional[float] = Form(None),
-    value_field: str = Form("mean", description="mean, min, max, median, or std"),
-    bar_height_multiplier: float = Form(10000.0, gt=0),
-    polygon_height_multiplier: float = Form(1000.0, gt=0),
-    polygon_fill_opacity: float = Form(0.7, ge=0.0, le=1.0),
-    polygon_outline: bool = Form(True),
-    show_labels: bool = Form(True),
-    interpolation_mode: str = Form("step", description="step or interpolation"),
-    save_to_db: bool = Form(True, description="Save CZML to database"),
-    czml_id: Optional[str] = Form(None, description="Frontend-generated UUID for cross-system reference"),
-    user_id: Optional[str] = Form(None, description="Owner user UUID for access control"),
-    project_id: Optional[str] = Form(None, description="Project UUID for grouping CZML documents"),
+    index_type: str = Form(..., alias="indexType", description="Climate index type (ppet, wbgt, etc.)"),
+    visualisation_type: str = Form("polygon", alias="visualisationType", description="bar or polygon"),
+    colourmap_name: str = Form("viridis", alias="colourmapName", description="Matplotlib colourmap name"),
+    scale_min: Optional[float] = Form(None, alias="scaleMin"),
+    scale_max: Optional[float] = Form(None, alias="scaleMax"),
+    value_field: str = Form("mean", alias="valueField", description="mean, min, max, median, or std"),
+    bar_height_multiplier: float = Form(10000.0, alias="barHeightMultiplier", gt=0),
+    polygon_height_multiplier: float = Form(1000.0, alias="polygonHeightMultiplier", gt=0),
+    polygon_fill_opacity: float = Form(0.7, alias="polygonFillOpacity", ge=0.0, le=1.0),
+    polygon_outline: bool = Form(True, alias="polygonOutline"),
+    show_labels: bool = Form(True, alias="showLabels"),
+    interpolation_mode: str = Form("step", alias="interpolationMode", description="step or interpolation"),
+    save_to_db: bool = Form(True, alias="saveToDb", description="Save CZML to database"),
+    czml_id: Optional[str] = Form(None, alias="czmlID", description="Frontend-generated UUID for cross-system reference"),
+    user_id: Optional[str] = Form(None, alias="userID", description="Owner user UUID for access control"),
+    project_id: Optional[str] = Form(None, alias="projectID", description="Project UUID for grouping CZML documents"),
 ) -> CZMLExportResponse:
     """
     Export selection as CZML for Cesium visualisation.
@@ -121,7 +124,7 @@ async def export_selection_czml(
     Uses `commons/colours.py` for colourmap rendering.
     Saves generated CZML to MongoDB czml_documents collection.
     
-    The index_type parameter filters to export only one climate index
+    The indexType parameter filters to export only one climate index
     (e.g., ppet or wbgt) to avoid overlapping polygons.
     """
     # Fetch selection
@@ -230,21 +233,21 @@ async def get_czml_document(
 
 
 @router.get(
-    "/czml/by-czml-id/{czml_id}",
-    summary="Get saved CZML document by czml_id (UUID)",
+    "/czml/by-czml-id/{czmlID}",
+    summary="Get saved CZML document by czmlID (UUID)",
     description="Retrieve a previously exported CZML document by frontend-generated UUID."
 )
 async def get_czml_by_czml_id(
-    czml_id: str = Path(..., description="Frontend-generated UUID (czml_id)")
+    czmlID: str = Path(..., description="Frontend-generated UUID (czmlID)")
 ) -> dict:
-    """Fetch a saved CZML document by its frontend-generated czml_id (UUID)."""
+    """Fetch a saved CZML document by its frontend-generated czmlID (UUID)."""
     czml_repo = CZMLRepository()
-    record = czml_repo.get_czml_by_czml_id(czml_id)
+    record = czml_repo.get_czml_by_czml_id(czmlID)
     
     if not record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"CZML document not found with czml_id: {czml_id}"
+            detail=f"CZML document not found with czmlID: {czmlID}"
         )
     
     return record.model_dump(by_alias=True)
@@ -259,10 +262,12 @@ async def list_czml_for_selection(
     id: str = Path(..., description="MongoDB ObjectId of the selection"),
     index_type: Optional[str] = Query(
         None,
+        alias="indexType",
         description="Filter by climate index type: ppet, wbgt, etc."
     ),
     visualisation_type: Optional[str] = Query(
         None,
+        alias="visualisationType",
         description="Filter by visualisation type: bar, polygon"
     )
 ) -> List[dict]:
@@ -304,15 +309,15 @@ async def update_czml_document(
     id: str = Path(..., description="MongoDB ObjectId of the CZML document"),
     title: Optional[str] = Form(None, description="CZML document title"),
     description: Optional[str] = Form(None, description="CZML document description"),
-    user_id: Optional[str] = Form(None, description="Owner user UUID"),
-    project_id: Optional[str] = Form(None, description="Project UUID"),
+    user_id: Optional[str] = Form(None, alias="userID", description="Owner user UUID"),
+    project_id: Optional[str] = Form(None, alias="projectID", description="Project UUID"),
 ) -> dict:
     """Update CZML document metadata fields."""
     # Check at least one field is provided
     if all(v is None for v in [title, description, user_id, project_id]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one field (title, description, user_id, project_id) must be provided."
+            detail="At least one field (title, description, userID, projectID) must be provided."
         )
 
     czml_repo = CZMLRepository()

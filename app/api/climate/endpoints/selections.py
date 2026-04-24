@@ -140,14 +140,14 @@ def _build_polygon_with_stats(
 async def save_selection(
     title: str = Form(..., min_length=1, max_length=200),
     geometry: str = Form(..., description="GeoJSON polygon geometry as JSON string (single or array)"),
-    asset_ids: str = Form(..., description="Comma-separated asset IDs (MongoDB ObjectId or raster_id UUID)"),
+    asset_ids: str = Form(..., alias="assetIds", description="Comma-separated asset IDs (MongoDB ObjectId or rasterID UUID)"),
     description: Optional[str] = Form(None, max_length=2000),
     tags: Optional[str] = Form(None, description="Comma-separated tags"),
-    locale_id: Optional[str] = Form(None, description="Locale UUID for grouping selections"),
-    site_id: Optional[str] = Form(None, description="Site UUID (auto-generated if not provided)"),
-    user_id: Optional[str] = Form(None, description="Owner user UUID for access control"),
-    project_id: Optional[str] = Form(None, description="Project UUID for grouping selections"),
-    selection_id: Optional[str] = Form(None, description="Frontend-generated UUID for cross-system reference"),
+    locale_id: Optional[str] = Form(None, alias="localeID", description="Locale UUID for grouping selections"),
+    site_id: Optional[str] = Form(None, alias="siteID", description="Site UUID (auto-generated if not provided)"),
+    user_id: Optional[str] = Form(None, alias="userID", description="Owner user UUID for access control"),
+    project_id: Optional[str] = Form(None, alias="projectID", description="Project UUID for grouping selections"),
+    selection_id: Optional[str] = Form(None, alias="selectionID", description="Frontend-generated UUID for cross-system reference"),
 ) -> JSONResponse:
     """
     Save polygon selection to polygon_selections collection.
@@ -162,7 +162,7 @@ async def save_selection(
     if not asset_id_list:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one asset_id is required"
+            detail="At least one assetId is required"
         )
 
     # Generate site_id if not provided
@@ -243,10 +243,10 @@ async def list_selections(
             "title": sel.title,
             "description": sel.description,
             "tags": sel.tags,
-            "polygon_count": len(sel.polygons),
-            "statistics_count": sum(len(p.statistics) for p in sel.polygons),
-            "created_at": sel.created_at.isoformat(),
-            "updated_at": sel.updated_at.isoformat()
+            "polygonCount": len(sel.polygons),
+            "statisticsCount": sum(len(p.statistics) for p in sel.polygons),
+            "createdAt": sel.created_at.isoformat(),
+            "updatedAt": sel.updated_at.isoformat()
         }
         for sel in selections
     ]
@@ -300,21 +300,21 @@ async def get_selection(
 
 
 @router.get(
-    "/selections/by-selection-id/{selection_id}",
-    summary="Retrieve selection by selection_id (UUID)",
+    "/selections/by-selection-id/{selectionID}",
+    summary="Retrieve selection by selectionID (UUID)",
     description="Fetch full selection details by frontend-generated UUID."
 )
 async def get_selection_by_selection_id(
-    selection_id: str = Path(..., description="Frontend-generated UUID (selection_id)")
+    selectionID: str = Path(..., description="Frontend-generated UUID (selectionID)")
 ) -> JSONResponse:
-    """Retrieve selection by frontend-generated selection_id (UUID)."""
+    """Retrieve selection by frontend-generated selectionID (UUID)."""
     repo = SelectionRepository()
-    selection = repo.get_selection_by_selection_id(selection_id)
+    selection = repo.get_selection_by_selection_id(selectionID)
 
     if not selection:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Selection not found with selection_id: {selection_id}"
+            detail=f"Selection not found with selectionID: {selectionID}"
         )
 
     return JSONResponse(content=selection.model_dump(by_alias=True, mode='json'))
@@ -345,15 +345,15 @@ async def delete_selection(
     "/selections/{id}",
     summary="Update selection metadata",
     description="Update metadata fields for an existing selection. Only provided fields are updated. "
-                "This does not update geometry or statistics — use /selections/save with the same selection_id for that."
+                "This does not update geometry or statistics — use /selections/save with the same selectionID for that."
 )
 async def update_selection(
     id: str = Path(..., description="MongoDB ObjectId of the selection"),
     title: Optional[str] = Form(None, min_length=1, max_length=200, description="Selection title"),
     description: Optional[str] = Form(None, max_length=2000, description="Selection description"),
     tags: Optional[str] = Form(None, description="Comma-separated tags (replaces existing tags)"),
-    user_id: Optional[str] = Form(None, description="Owner user UUID"),
-    project_id: Optional[str] = Form(None, description="Project UUID"),
+    user_id: Optional[str] = Form(None, alias="userID", description="Owner user UUID"),
+    project_id: Optional[str] = Form(None, alias="projectID", description="Project UUID"),
 ) -> JSONResponse:
     """Update selection metadata fields."""
     # Parse tags
@@ -363,7 +363,7 @@ async def update_selection(
     if all(v is None for v in [title, description, tag_list, user_id, project_id]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one field (title, description, tags, user_id, project_id) must be provided."
+            detail="At least one field (title, description, tags, userID, projectID) must be provided."
         )
 
     repo = SelectionRepository()

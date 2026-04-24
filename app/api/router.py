@@ -9,7 +9,7 @@ tags_metadata = [
         "name": "climate_ingest",
         "description": "**Core workflow.** Upload and ingest GeoTIFF climate files. "
                        "Validates, reprojects to EPSG:4326, stores raw + COG to GCS, and records metadata in MongoDB. "
-                       "Supports frontend-generated raster_id UUIDs for upsert and ownership tracking.",
+                       "Supports frontend-generated rasterID UUIDs for upsert and ownership tracking.",
     },
     {
         "name": "climate_tiles",
@@ -19,8 +19,8 @@ tags_metadata = [
     {
         "name": "climate_assets",
         "description": "**Core workflow.** Browse, search, retrieve, update, and delete climate data assets. "
-                       "Supports lookup by MongoDB ObjectId, raster_id UUID, or filename. "
-                       "Filterable by user_id and project_id for ownership scoping.",
+                       "Supports lookup by MongoDB ObjectId, rasterID UUID, or filename. "
+                       "Filterable by userID and projectID for ownership scoping.",
     },
     {
         "name": "climate_polygons",

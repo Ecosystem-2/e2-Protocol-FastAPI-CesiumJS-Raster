@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Optional, Tuple
 
 import numpy as np
-from fastapi import APIRouter, HTTPException, Path, status
+from fastapi import APIRouter, HTTPException, Path, Query, status
 from fastapi.responses import Response
 from rio_tiler.io import COGReader  # type: ignore[attr-defined]
 from rio_tiler.colormap import cmap
@@ -75,31 +75,43 @@ def _rescale_array(arr: np.ndarray, valid_mask: np.ndarray, vmin: float, vmax: f
 
 
 @router.get(
-    "/tiles/{id}/{z}/{x}/{y}.png",
+    "/tiles/{raster_id}/{z}/{x}/{y}.png",
     summary="Serve a tile for an asset (COG-backed).",
-    description="Lightweight tile endpoint using rio-tiler; resolves COG URI from Mongo.",
+    description="Lightweight tile endpoint using rio-tiler; resolves COG URI from Mongo by rasterID.",
 )
 async def tile_png(
-    id: str = Path(..., description="MongoDB ObjectId of the asset"),
+    raster_id: str = Path(..., description="UUID rasterID of the asset"),
     z: int = Path(..., description="Tile zoom level"),
     x: int = Path(..., description="Tile x coordinate"),
     y: int = Path(..., description="Tile y coordinate"),
-    colormap_name: str = "viridis",
-    scale_min: Optional[float] = None,
-    scale_max: Optional[float] = None,
+    # Accept both snake_case and camelCase query params
+    colormap_name: Optional[str] = Query(None, description="Colormap name (snake_case)"),
+    colormapName: Optional[str] = Query(None, description="Colormap name (camelCase)"),
+    colourMap: Optional[str] = Query(None, description="Colormap name (alternative)"),
+    scale_min: Optional[float] = Query(None, description="Scale minimum (snake_case)"),
+    scaleMin: Optional[float] = Query(None, description="Scale minimum (camelCase)"),
+    min: Optional[float] = Query(None, alias="min", description="Scale minimum (short)"),
+    scale_max: Optional[float] = Query(None, description="Scale maximum (snake_case)"),
+    scaleMax: Optional[float] = Query(None, description="Scale maximum (camelCase)"),
+    max: Optional[float] = Query(None, alias="max", description="Scale maximum (short)"),
 ) -> Response:
     """Serve a PNG tile for a raster asset with proper transparency and colour mapping."""
-    # Fetch asset and validate colourmap
+    # Resolve query params (accept multiple naming conventions)
+    resolved_colormap = colormap_name or colormapName or colourMap or "viridis"
+    resolved_scale_min = scale_min if scale_min is not None else (scaleMin if scaleMin is not None else min)
+    resolved_scale_max = scale_max if scale_max is not None else (scaleMax if scaleMax is not None else max)
+
+    # Fetch asset by rasterID and validate colourmap
     repo = AssetRepository()
-    asset = repo.get_asset(id)
+    asset = repo.get_asset_by_raster_id(raster_id)
     if not asset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Asset not found.")
 
-    cmap_def = cmap.get(colormap_name)
+    cmap_def = cmap.get(resolved_colormap)
     if cmap_def is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unknown colourmap: {colormap_name}"
+            detail=f"Unknown colourmap: {resolved_colormap}"
         )
 
     try:
@@ -114,7 +126,7 @@ async def tile_png(
             
             # Determine rescale range and apply to data
             vmin, vmax = _determine_rescale_range(
-                arr, valid_mask, scale_min, scale_max,
+                arr, valid_mask, resolved_scale_min, resolved_scale_max,
                 asset.raster.min, asset.raster.max
             )
             arr_rescaled = _rescale_array(arr, valid_mask, vmin, vmax)
@@ -132,7 +144,7 @@ async def tile_png(
             content = tile.render(colormap=cmap_def, img_format="PNG")  # type: ignore[call-arg]
             
     except TileOutsideBounds:
-        logger.warning("Tile outside bounds for id=%s, z=%d, x=%d, y=%d", id, z, x, y)
+        logger.warning("Tile outside bounds for raster_id=%s, z=%d, x=%d, y=%d", raster_id, z, x, y)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tile outside bounds")
     except Exception as exc:
         logger.error("Tile render failed: %s", exc)
