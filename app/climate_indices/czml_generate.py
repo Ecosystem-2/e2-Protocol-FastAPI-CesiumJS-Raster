@@ -9,6 +9,7 @@ import numpy as np
 
 from app.climate_indices.models import PolygonSelectionRecord, CZMLExportOptions
 from app.climate_indices.czml_bar import export_bar_czml
+from app.climate_indices.czml_circle import export_circle_czml
 from app.climate_indices.czml_polygon import export_polygon_czml
 from app.climate_indices.czml_time import period_midpoint_isos
 from app.core.logging import get_logger
@@ -22,6 +23,8 @@ def _visualisation_name_suffix(visualisation_type: str) -> str:
         return " (Bar Chart)"
     if visualisation_type == "polygon2d":
         return " (2D Polygon)"
+    if visualisation_type == "circle2d":
+        return " (2D Circle)"
     return ""
 
 
@@ -194,6 +197,10 @@ class CZMLExportService:
         if options.visualisation_type == "bar":
             # Bar mode creates one bar PER POLYGON, each at its own centroid
             entity_packets = export_bar_czml(
+                selection, options, vmin, vmax, index_type_filter=index_type
+            )
+        elif options.visualisation_type == "circle2d":
+            entity_packets = export_circle_czml(
                 selection, options, vmin, vmax, index_type_filter=index_type
             )
         elif options.visualisation_type in {"polygon", "polygon2d"}:

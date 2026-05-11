@@ -83,7 +83,7 @@
             <strong style="color: #94a3b8; font-size: 11px;">Parameters (Form Data):</strong>
             <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px;">
 index_type: "ppet" | "wbgt"                       # Required - climate index to export
-visualisation_type: "polygon" | "polygon2d" | "bar" # Optional, default: polygon
+visualisation_type: "polygon" | "polygon2d" | "circle2d" | "bar" # Optional, default: polygon
 colourmap_name: "viridis"                         # Optional, default: viridis
 value_field: "mean" | "min" | "max" | "std"       # Optional, default: mean
 interpolation_mode: "step" | "interpolation"      # Optional, default: step
@@ -93,6 +93,7 @@ bar_minimum_radius: 500.0                         # Optional, ensures visibility
 polygon_height_multiplier: 1000.0                 # Optional, for polygon type
 polygon_fill_opacity: 0.7                         # Optional, 0-1
 polygon_outline: true                              # Optional
+circle_radius: 1000.0                              # Optional, for circle2d type (metres)
 show_labels: true                                  # Optional
 save_to_db: true                                   # Optional, saves to MongoDB
 czml_id: "uuid-v4"                                 # Optional, frontend-generated UUID
@@ -154,6 +155,7 @@ czml = response.json()</pre>
           <select id="visualisationType">
             <option value="polygon" selected>Polygon (extruded shape)</option>
             <option value="polygon2d">2D Polygon (colour only)</option>
+            <option value="circle2d">2D Circle (colour only)</option>
             <option value="bar">Bar (3D cylinders)</option>
           </select>
         </div>
@@ -243,6 +245,20 @@ czml = response.json()</pre>
           </div>
         </div>
 
+        <div class="control-group" id="circleOptionsGroup" style="display: none;">
+          <label>Circle Options</label>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label for="circleRadius" style="font-size: 12px;">Radius (m)</label>
+              <input type="number" id="circleRadius" value="1000" min="1" step="100" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
+            </div>
+            <div>
+              <label for="circleFillOpacity" style="font-size: 12px;">Fill Opacity</label>
+              <input type="number" id="circleFillOpacity" value="0.7" min="0" max="1" step="0.1" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
+            </div>
+          </div>
+        </div>
+
         <!-- Ownership fields (pre-filled from Step 1 if available) -->
         <details style="margin-bottom: 15px; padding: 12px; background: rgba(30, 41, 59, 0.6); border-left: 3px solid #60a5fa; border-radius: 6px;">
           <summary style="cursor: pointer; font-weight: 600; color: #60a5fa; font-size: 13px;">🆕 Ownership &amp; IDs (optional)</summary>
@@ -316,6 +332,6 @@ czml = response.json()</pre>
   </div>
 
   <script src="static/demo3-common.js?v=2"></script>
-  <script src="static/step5_export.js?v=7"></script>
+  <script src="static/step5_export.js?v=8"></script>
 </body>
 </html>

@@ -79,20 +79,27 @@ function updateVisualisationOptions() {
   const polygonOptionsGrid = document.getElementById('polygonOptionsGrid');
   const polygonHeightOption = document.getElementById('polygonHeightOption');
   const barOptionsGroup = document.getElementById('barOptionsGroup');
+  const circleOptionsGroup = document.getElementById('circleOptionsGroup');
   const isPolygonMode = visualisationType === 'polygon' || visualisationType === 'polygon2d';
 
   if (isPolygonMode) {
     polygonOptionsGroup.style.display = 'block';
     barOptionsGroup.style.display = 'none';
+    if (circleOptionsGroup) circleOptionsGroup.style.display = 'none';
     if (polygonHeightOption) {
       polygonHeightOption.style.display = visualisationType === 'polygon' ? 'block' : 'none';
     }
     if (polygonOptionsGrid) {
       polygonOptionsGrid.style.gridTemplateColumns = visualisationType === 'polygon' ? '1fr 1fr' : '1fr';
     }
+  } else if (visualisationType === 'circle2d') {
+    polygonOptionsGroup.style.display = 'none';
+    barOptionsGroup.style.display = 'none';
+    if (circleOptionsGroup) circleOptionsGroup.style.display = 'block';
   } else {
     polygonOptionsGroup.style.display = 'none';
     barOptionsGroup.style.display = 'block';
+    if (circleOptionsGroup) circleOptionsGroup.style.display = 'none';
   }
 }
 
@@ -266,6 +273,11 @@ function _buildExportOptions(saveToDb) {
       options.polygonHeightMultiplier = parseFloat(heightMultiplier.value) || 1000;
     }
     if (fillOpacity) options.polygonFillOpacity = parseFloat(fillOpacity.value) || 0.7;
+  } else if (visualisationType === 'circle2d') {
+    const circleRadius = document.getElementById('circleRadius');
+    const circleFillOpacity = document.getElementById('circleFillOpacity');
+    if (circleRadius) options.circleRadius = parseFloat(circleRadius.value) || 1000;
+    if (circleFillOpacity) options.polygonFillOpacity = parseFloat(circleFillOpacity.value) || 0.7;
   } else if (visualisationType === 'bar') {
     const barHeight = document.getElementById('barHeightMultiplier');
     const barRadius = document.getElementById('barRadiusMultiplier');

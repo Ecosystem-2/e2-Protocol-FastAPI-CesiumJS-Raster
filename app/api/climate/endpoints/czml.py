@@ -101,7 +101,7 @@ async def get_colourmaps_by_category() -> ColourmapCategoriesResponse:
 async def export_selection_czml(
     id: str = Path(..., description="MongoDB ObjectId of the selection"),
     index_type: str = Form(..., alias="indexType", description="Climate index type (ppet, wbgt, etc.)"),
-    visualisation_type: str = Form("polygon", alias="visualisationType", description="bar, polygon, or polygon2d"),
+    visualisation_type: str = Form("polygon", alias="visualisationType", description="bar, polygon, polygon2d, or circle2d"),
     colourmap_name: str = Form("viridis", alias="colourmapName", description="Matplotlib colourmap name"),
     scale_min: Optional[float] = Form(None, alias="scaleMin"),
     scale_max: Optional[float] = Form(None, alias="scaleMax"),
@@ -112,6 +112,7 @@ async def export_selection_czml(
     polygon_height_multiplier: float = Form(1000.0, alias="polygonHeightMultiplier", gt=0),
     polygon_fill_opacity: float = Form(0.7, alias="polygonFillOpacity", ge=0.0, le=1.0),
     polygon_outline: bool = Form(True, alias="polygonOutline"),
+    circle_radius: float = Form(1000.0, alias="circleRadius", gt=0),
     show_labels: bool = Form(True, alias="showLabels"),
     interpolation_mode: str = Form("step", alias="interpolationMode", description="step or interpolation"),
     save_to_db: bool = Form(True, alias="saveToDb", description="Save CZML to database"),
@@ -152,6 +153,7 @@ async def export_selection_czml(
             polygon_height_multiplier=polygon_height_multiplier,
             polygon_fill_opacity=polygon_fill_opacity,
             polygon_outline=polygon_outline,
+            circle_radius=circle_radius,
             show_labels=show_labels,
             interpolation_mode=interpolation_mode  # type: ignore
         )

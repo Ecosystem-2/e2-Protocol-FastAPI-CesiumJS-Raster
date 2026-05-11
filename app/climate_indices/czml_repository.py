@@ -137,7 +137,7 @@ class CZMLRepository:
         Args:
             selection_ref: The selection MongoDB ObjectId as string
             index_type: Optional filter by climate index (ppet, wbgt, etc.)
-            visualisation_type: Optional filter by type (bar, polygon, polygon2d)
+            visualisation_type: Optional filter by type (bar, polygon, polygon2d, circle2d)
 
         Returns:
             List of CZMLRecord documents
