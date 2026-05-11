@@ -267,10 +267,10 @@ class CZMLExportOptions(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
-    visualisation_type: Literal["bar", "polygon"] = Field(
+    visualisation_type: Literal["bar", "polygon", "polygon2d"] = Field(
         default="polygon",
         alias="visualisationType",
-        description="Cesium entity type: bar (3D cylinders) or polygon (extruded shapes)"
+        description="Cesium entity type: bar (3D cylinders), polygon (extruded shapes), or polygon2d (flat colour polygons)"
     )
 
     colourmap_name: str = Field(
@@ -330,7 +330,7 @@ class CZMLExportOptions(BaseModel):
         ge=0.0,
         le=1.0,
         alias="polygonFillOpacity",
-        description="Fill opacity for extruded polygons (0-1)"
+        description="Fill opacity for polygon visualisations (0-1)"
     )
 
     polygon_outline: bool = Field(

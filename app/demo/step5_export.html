@@ -83,7 +83,7 @@
             <strong style="color: #94a3b8; font-size: 11px;">Parameters (Form Data):</strong>
             <pre style="background: #0f172a; padding: 8px; border-radius: 4px; margin-top: 6px; overflow-x: auto; font-size: 10px;">
 index_type: "ppet" | "wbgt"                       # Required - climate index to export
-visualisation_type: "polygon" | "bar"             # Optional, default: polygon
+visualisation_type: "polygon" | "polygon2d" | "bar" # Optional, default: polygon
 colourmap_name: "viridis"                         # Optional, default: viridis
 value_field: "mean" | "min" | "max" | "std"       # Optional, default: mean
 interpolation_mode: "step" | "interpolation"      # Optional, default: step
@@ -153,6 +153,7 @@ czml = response.json()</pre>
           <label for="visualisationType">Visualisation Type</label>
           <select id="visualisationType">
             <option value="polygon" selected>Polygon (extruded shape)</option>
+            <option value="polygon2d">2D Polygon (colour only)</option>
             <option value="bar">Bar (3D cylinders)</option>
           </select>
         </div>
@@ -209,8 +210,8 @@ czml = response.json()</pre>
 
         <div class="control-group" id="polygonOptionsGroup" style="display: none;">
           <label>Polygon Options</label>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <div>
+          <div id="polygonOptionsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div id="polygonHeightOption">
               <label for="polygonHeightMultiplier" style="font-size: 12px;">Height Multiplier</label>
               <input type="number" id="polygonHeightMultiplier" value="1000" min="1" step="100" style="width: 100%; padding: 6px; border: 1px solid #475569; border-radius: 4px; background: #1e293b; color: #e2e8f0;">
             </div>
@@ -269,8 +270,11 @@ czml = response.json()</pre>
           </div>
         </details>
 
-        <button class="btn btn-primary" onclick="exportCZML()">
-          📦 Export CZML
+        <button class="btn btn-primary" onclick="previewCZML()">
+          👁️ Preview CZML
+        </button>
+        <button class="btn btn-success" onclick="saveCZML()" id="saveBtn" disabled>
+          💾 Save CZML
         </button>
         <button class="btn btn-success" onclick="loadCZMLInViewer()" id="loadBtn" disabled>
           🗺️ Load in Cesium Viewer
@@ -282,7 +286,7 @@ czml = response.json()</pre>
 
       <!-- Export Success Message -->
       <div id="exportSuccess" style="display: none; margin-top: 20px; padding: 20px; background: #d1fae5; border-radius: 6px; border-left: 4px solid #10b981;">
-        <h3 style="margin: 0 0 15px 0; color: #065f46;">✓ CZML Exported</h3>
+        <h3 id="exportSuccessLabel" style="margin: 0 0 15px 0; color: #065f46;">✓ CZML Preview Ready</h3>
         <div style="font-size: 13px; color: #065f46;">
           <div><strong>Document ID:</strong> <span id="czmlDocId"></span></div>
           <div><strong>Packets:</strong> <span id="czmlPackets"></span></div>
@@ -312,6 +316,6 @@ czml = response.json()</pre>
   </div>
 
   <script src="static/demo3-common.js?v=2"></script>
-  <script src="static/step5_export.js?v=2"></script>
+  <script src="static/step5_export.js?v=7"></script>
 </body>
 </html>

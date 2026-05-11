@@ -10,9 +10,19 @@ import numpy as np
 from app.climate_indices.models import PolygonSelectionRecord, CZMLExportOptions
 from app.climate_indices.czml_bar import export_bar_czml
 from app.climate_indices.czml_polygon import export_polygon_czml
+from app.climate_indices.czml_time import period_midpoint_isos
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _visualisation_name_suffix(visualisation_type: str) -> str:
+    """Return a display suffix for non-default CZML visualisation modes."""
+    if visualisation_type == "bar":
+        return " (Bar Chart)"
+    if visualisation_type == "polygon2d":
+        return " (2D Polygon)"
+    return ""
 
 
 class CZMLExportService:
@@ -31,7 +41,14 @@ class CZMLExportService:
         if not values:
             return 0.0, 1.0
 
-        return float(np.min(values)), float(np.max(values))
+        vmin = float(np.min(values))
+        vmax = float(np.max(values))
+
+        # Guard against uniform data: colourmap_interpret requires vmin < vmax
+        if vmin == vmax:
+            vmax = vmin + max(abs(vmin) * 0.1, 0.5)
+
+        return vmin, vmax
 
     @staticmethod
     def _group_statistics_by_time(polygons_with_stats: list) -> dict[str, list]:
@@ -62,12 +79,12 @@ class CZMLExportService:
     @staticmethod
     def _create_document_packet(
         selection: PolygonSelectionRecord,
-        visualisation_type: str
+        options: CZMLExportOptions
     ) -> dict[str, Any]:
         """Create CZML document packet with clock settings if temporal data exists."""
         doc_packet = {
             "id": "document",
-            "name": f"{selection.title}{' (Bar Chart)' if visualisation_type == 'bar' else ''}",
+            "name": f"{selection.title}{_visualisation_name_suffix(options.visualisation_type)}",
             "version": "1.0",
             "description": selection.description or ""
         }
@@ -96,7 +113,17 @@ class CZMLExportService:
                 if s.time_range and s.time_range.end
             ]
             
-            if all_starts and all_ends:
+            midpoint_times = period_midpoint_isos(all_stats)
+
+            if options.interpolation_mode == "interpolation" and midpoint_times:
+                doc_packet["clock"] = {
+                    "interval": f"{midpoint_times[0]}/{midpoint_times[-1]}",
+                    "currentTime": midpoint_times[0],
+                    "multiplier": 31536000,  # 1 year per second
+                    "range": "LOOP_STOP",
+                    "step": "SYSTEM_CLOCK_MULTIPLIER"
+                }
+            elif all_starts and all_ends:
                 doc_packet["clock"] = {
                     "interval": f"{min(all_starts).isoformat()}/{max(all_ends).isoformat()}",
                     "currentTime": min(all_starts).isoformat(),
@@ -150,11 +177,11 @@ class CZMLExportService:
             logger.info(f"Filtered to single index_type: {index_type}")
 
         # Create document packet with clock settings
-        doc_packet = self._create_document_packet(selection, options.visualisation_type)
+        doc_packet = self._create_document_packet(selection, options)
         
         # Update document name if filtering by index_type
         if index_type:
-            type_suffix = " (Bar Chart)" if options.visualisation_type == "bar" else ""
+            type_suffix = _visualisation_name_suffix(options.visualisation_type)
             doc_packet["name"] = f"{selection.title} - {index_type.upper()}{type_suffix}"
 
         # Use first polygon's centroid for polygon visualisation positioning
@@ -169,7 +196,7 @@ class CZMLExportService:
             entity_packets = export_bar_czml(
                 selection, options, vmin, vmax, index_type_filter=index_type
             )
-        elif options.visualisation_type == "polygon":
+        elif options.visualisation_type in {"polygon", "polygon2d"}:
             entity_packets = export_polygon_czml(
                 selection, options, vmin, vmax, centroid, grouped_stats
             )

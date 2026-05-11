@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Optional, List
+from typing import Any, Optional, List
 
 from bson import ObjectId  # type: ignore
 
 from app.core.logging import get_logger
 from app.db.mongo import get_sync_client
-from app.climate_indices.models import CZMLRecord, CZMLExportOptions
+from app.climate_indices.models import CZMLRecord
 
 logger = get_logger(__name__)
 
@@ -137,7 +137,7 @@ class CZMLRepository:
         Args:
             selection_ref: The selection MongoDB ObjectId as string
             index_type: Optional filter by climate index (ppet, wbgt, etc.)
-            visualisation_type: Optional filter by type (bar, polygon)
+            visualisation_type: Optional filter by type (bar, polygon, polygon2d)
 
         Returns:
             List of CZMLRecord documents
@@ -197,3 +197,49 @@ class CZMLRepository:
         else:
             logger.warning("CZML document not found for deletion: %s", czml_id)
         return deleted
+
+    def update_czml_metadata(
+        self,
+        czml_id: str,
+        *,
+        title: Optional[str] = None,
+        description: Optional[str] = None,
+        user_id: Optional[str] = None,
+        project_id: Optional[str] = None,
+    ) -> Optional[CZMLRecord]:
+        """
+        Update CZML metadata fields without regenerating the stored CZML document.
+
+        Only provided fields are updated. Returns the updated document, or None
+        when the id is invalid or no matching document exists.
+        """
+        try:
+            oid = ObjectId(czml_id)
+        except Exception:
+            logger.warning("Invalid czml_id provided for update: %s", czml_id)
+            return None
+
+        update_fields: dict[str, Any] = {
+            "updatedAt": datetime.now(timezone.utc)
+        }
+
+        if title is not None:
+            update_fields["title"] = title
+        if description is not None:
+            update_fields["description"] = description
+        if user_id is not None:
+            update_fields["userID"] = user_id
+        if project_id is not None:
+            update_fields["projectID"] = project_id
+
+        if len(update_fields) == 1:
+            logger.warning("No fields to update for CZML document %s", czml_id)
+            return self.get_czml(czml_id)
+
+        result = self.collection.update_one({"_id": oid}, {"$set": update_fields})
+        if result.matched_count == 0:
+            logger.warning("CZML document not found for update: %s", czml_id)
+            return None
+
+        logger.info("Updated CZML document %s: %s", czml_id, list(update_fields.keys()))
+        return self.get_czml(czml_id)
