@@ -91,9 +91,35 @@ Both endpoints accept Form data:
 | `PUT` | `/selections/{id}` | Update selection metadata (title, description, tags, ownership) |
 | `DELETE` | `/selections/{id}` | Delete selection permanently |
 
-**`POST /selections/save`** — Persists one or more drawn polygons as a named selection. Automatically computes zonal statistics for all provided assets. Re-saving with the same `selectionID` replaces the existing record.
+**`POST /selections/save`** — Persists one or more drawn polygons as a named selection. Automatically computes zonal statistics for all provided assets. Re-saving with the same `selectionID` replaces the existing record while preserving the MongoDB `_id` and original `createdAt`.
 
-Form parameters include: `title`, `geometry` (GeoJSON string), `assetIds`, `description`, `tags`, `localeID`, `siteID`, `userID`, `projectID`, `selectionID`.
+Configurable options:
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `title` | string | yes | Selection title, 1-200 characters. |
+| `geometry` | JSON string | yes | A single GeoJSON `Polygon`/`MultiPolygon` object, or an array of them. Each polygon object may include an optional `title` field used later in CZML entity names and descriptions. |
+| `assetIds` | string | yes | Comma-separated asset IDs. Each item may be a MongoDB ObjectId or frontend `rasterID` UUID. |
+| `description` | string | no | Selection description, up to 2000 characters. |
+| `tags` | string | no | Comma-separated tags stored as an array. |
+| `localeID` | string | no | Locale UUID for grouping selections. |
+| `siteID` | string | no | Site UUID. If omitted, the API generates a UUID. |
+| `userID` | string | no | Owner user UUID for access control or filtering. |
+| `projectID` | string | no | Project UUID for grouping selections. |
+| `selectionID` | UUID | no | Frontend-generated cross-system UUID. If an existing selection has the same `selectionID`, the endpoint replaces it. |
+
+Example:
+
+```bash
+curl -X POST "http://localhost:8080/api/climate-indices/selections/save" \
+  -F "title=Segama priority areas" \
+  -F 'geometry=[{"title":"central area","type":"Polygon","coordinates":[[[117.80,5.06],[117.88,5.00],[117.90,5.08],[117.80,5.06]]]}]' \
+  -F "assetIds=69eb4f8cd78b4f51ac664807,69eb4f89d78b4f51ac664805" \
+  -F "tags=humid-heat-stress,priority" \
+  -F "localeID=2e663f1c-6bf9-403b-9764-f90d4160488c" \
+  -F "siteID=5d940f4a-763c-4f68-9875-b67a83adbb01" \
+  -F "selectionID=550e8400-e29b-41d4-a716-446655440000"
+```
 
 ---
 
