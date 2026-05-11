@@ -37,19 +37,32 @@ def _compute_centroid(polygon_geojson: dict) -> dict[str, float]:
     return {"lon": c.x, "lat": c.y}
 
 
-def _parse_polygon(polygon_geojson: str) -> PolygonGeometry | list[PolygonGeometry]:
-    """Parse and validate polygon GeoJSON (handles single polygon or array)."""
+def _parse_polygon(polygon_geojson: str) -> list[tuple[PolygonGeometry, Optional[str]]]:
+    """Parse and validate polygon GeoJSON, extracting optional per-polygon title.
+
+    Accepts a single polygon object or an array of polygon objects. Each object
+    may include an optional ``title`` field alongside the standard GeoJSON fields
+    (``type``, ``coordinates``). Returns a list of (geometry, title) tuples.
+    """
     try:
-        geom = json.loads(polygon_geojson)
-        
-        # Handle array of polygons - preserve all
-        if isinstance(geom, list):
-            if not geom:
-                raise ValueError("Empty polygon array")
-            return [PolygonGeometry(**g) for g in geom]
-        
-        # Single polygon
-        return PolygonGeometry(**geom)
+        raw = json.loads(polygon_geojson)
+
+        # Normalise to a list so the rest of the code is uniform
+        items = raw if isinstance(raw, list) else [raw]
+
+        if not items:
+            raise ValueError("Empty polygon array")
+
+        result = []
+        for item in items:
+            if not isinstance(item, dict):
+                raise ValueError(f"Expected a polygon object, got {type(item).__name__}")
+            poly_title = item.get("title") or None
+            result.append((PolygonGeometry(**item), poly_title))
+
+        return result
+    except HTTPException:
+        raise
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -85,7 +98,8 @@ def _resolve_asset(asset_id: str, asset_repo: AssetRepository):
 def _build_polygon_with_stats(
     polygon_geom: PolygonGeometry,
     asset_ids: list[str],
-    asset_repo: AssetRepository
+    asset_repo: AssetRepository,
+    title: Optional[str] = None,
 ) -> PolygonWithStatistics:
     """Build a PolygonWithStatistics object for a single polygon."""
     # Compute centroid
@@ -121,6 +135,7 @@ def _build_polygon_with_stats(
             continue
     
     return PolygonWithStatistics(
+        title=title,
         geometry=polygon_geom,
         centroid=centroid,
         statistics=statistics
@@ -155,7 +170,7 @@ async def save_selection(
     Re-uploading the same title **replaces** the existing selection.
     """
     # Parse inputs
-    polygon = _parse_polygon(geometry)
+    polygon_list = _parse_polygon(geometry)  # list of (PolygonGeometry, title) tuples
     asset_id_list = [aid.strip() for aid in asset_ids.split(",") if aid.strip()]
     tag_list = [t.strip() for t in tags.split(",")] if tags else []
 
@@ -171,11 +186,10 @@ async def save_selection(
 
     # Build PolygonWithStatistics objects for each polygon
     asset_repo = AssetRepository()
-    polygon_list = polygon if isinstance(polygon, list) else [polygon]
-    
+
     polygons_with_stats = []
-    for poly in polygon_list:
-        poly_with_stats = _build_polygon_with_stats(poly, asset_id_list, asset_repo)
+    for poly_geom, poly_title in polygon_list:
+        poly_with_stats = _build_polygon_with_stats(poly_geom, asset_id_list, asset_repo, title=poly_title)
         if not poly_with_stats.statistics:
             logger.warning("No statistics computed for polygon")
         polygons_with_stats.append(poly_with_stats)

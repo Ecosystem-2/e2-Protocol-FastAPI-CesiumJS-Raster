@@ -215,6 +215,7 @@ class PolygonWithStatistics(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
+    title: Optional[str] = Field(default=None, max_length=200, description="User-defined label for this polygon (e.g., 'Central Area')")
     geometry: PolygonGeometry = Field(..., description="GeoJSON polygon geometry")
     centroid: Dict[str, float] = Field(..., description="Computed centroid {lon, lat}")
     statistics: List[SelectionStatistics] = Field(

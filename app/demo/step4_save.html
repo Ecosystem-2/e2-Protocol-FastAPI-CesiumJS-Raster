@@ -68,12 +68,26 @@ const formData = new FormData();
 formData.append('title', 'Segama Delta Heat Stress');
 formData.append('description', 'High risk area analysis');
 formData.append('tags', 'climate,heat,risk');
-formData.append('geometry', JSON.stringify(polygon));
-formData.append('asset_ids', 'asset-id-1,asset-id-2');
-formData.append('locale_id', 'd35051c9-9444-4367-ae59-e77b9c58f91e');
-formData.append('selection_id', '550e8400-e29b-41d4-a716-446655440000');
-formData.append('user_id', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890');
-formData.append('project_id', 'proj-001');
+
+// Each polygon object may include an optional "title" label
+const polygons = [
+  {
+    type: 'Polygon',
+    title: 'Central Area',      // optional per-polygon label
+    coordinates: [[[117.5, 4.5], [117.6, 4.5], [117.6, 4.6], [117.5, 4.6], [117.5, 4.5]]]
+  },
+  {
+    type: 'Polygon',
+    title: 'Coastal Zone',      // optional per-polygon label
+    coordinates: [[[117.7, 4.7], [117.8, 4.7], [117.8, 4.8], [117.7, 4.8], [117.7, 4.7]]]
+  }
+];
+formData.append('geometry', JSON.stringify(polygons));
+formData.append('assetIds', 'asset-id-1,asset-id-2');
+formData.append('localeID', 'd35051c9-9444-4367-ae59-e77b9c58f91e');
+formData.append('selectionID', '550e8400-e29b-41d4-a716-446655440000');
+formData.append('userID', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890');
+formData.append('projectID', 'proj-001');
 
 const response = await fetch('/api/climate-indices/selections/save', {
   method: 'POST',
@@ -87,16 +101,30 @@ const response = await fetch('/api/climate-indices/selections/save', {
 import requests
 import json
 
+# Each polygon object may include an optional "title" label
+polygons = [
+    {
+        "type": "Polygon",
+        "title": "Central Area",
+        "coordinates": [[[117.5, 4.5], [117.6, 4.5], [117.6, 4.6], [117.5, 4.6], [117.5, 4.5]]]
+    },
+    {
+        "type": "Polygon",
+        "title": "Coastal Zone",
+        "coordinates": [[[117.7, 4.7], [117.8, 4.7], [117.8, 4.8], [117.7, 4.8], [117.7, 4.7]]]
+    }
+]
+
 data = {
     'title': 'Segama Delta Heat Stress',
     'description': 'High risk area analysis',
     'tags': 'climate,heat,risk',
-    'geometry': json.dumps(polygon),
-    'asset_ids': 'asset-id-1,asset-id-2',
-    'locale_id': 'd35051c9-9444-4367-ae59-e77b9c58f91e',
-    'selection_id': '550e8400-e29b-41d4-a716-446655440000',
-    'user_id': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-    'project_id': 'proj-001'
+    'geometry': json.dumps(polygons),
+    'assetIds': 'asset-id-1,asset-id-2',
+    'localeID': 'd35051c9-9444-4367-ae59-e77b9c58f91e',
+    'selectionID': '550e8400-e29b-41d4-a716-446655440000',
+    'userID': 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+    'projectID': 'proj-001'
 }
 
 response = requests.post(
