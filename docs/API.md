@@ -97,7 +97,7 @@ Form parameters include: `title`, `geometry` (GeoJSON string), `assetIds`, `desc
 
 ---
 
-### CZML Export — 3D Cesium Visualisation
+### CZML Export — Cesium Visualisation
 
 | Method | Endpoint | Summary |
 |--------|----------|---------|
@@ -110,11 +110,45 @@ Form parameters include: `title`, `geometry` (GeoJSON string), `assetIds`, `desc
 | `GET` | `/colourmaps` | List available Matplotlib colourmaps |
 | `GET` | `/colourmaps/categories` | Get colourmaps organised by category |
 
-**`POST /selections/{id}/export-czml`** — Generates a CZML document for Cesium from a saved selection's statistics. Supports two visualisation types:
-- **`bar`** — 3D bar charts positioned at polygon centroids, height proportional to statistic value
-- **`polygon`** — Extruded coloured polygons with height and fill based on statistic value
+**`POST /selections/{id}/export-czml`** — Generates a CZML document for Cesium from a saved selection's statistics. Supports four visualisation types:
+- **`polygon`** — Extruded coloured polygons. Height and fill colour are based on the selected statistic value.
+- **`polygon2d`** — Flat saved polygon geometry. Fill colour is based on the selected statistic value; no extrusion is generated.
+- **`circle2d`** — Flat circles centred on each saved polygon centroid. Circle radius is user-defined; fill colour is based on the selected statistic value.
+- **`bar`** — 3D cylinders positioned at polygon centroids. Height is proportional to the selected statistic value.
 
-Configurable options: `colourmapName`, `scaleMin`/`scaleMax`, `valueField` (mean/min/max/std), height multipliers, opacity, labels, interpolation mode.
+Configurable options:
+
+| Field | Type | Default | Applies to | Description |
+|-------|------|---------|------------|-------------|
+| `indexType` | string | required | all | Climate index to export, e.g. `ppet` or `humid-heat-stress`. |
+| `visualisationType` | enum | `polygon` | all | One of `polygon`, `polygon2d`, `circle2d`, or `bar`. |
+| `colourmapName` | string | `viridis` | all | Matplotlib colourmap name. |
+| `scaleMin` / `scaleMax` | number | auto | all | Optional fixed colour scale bounds. |
+| `valueField` | enum | `mean` | all | Statistic used for colour/height: `mean`, `min`, `max`, `median`, or `std`. |
+| `interpolationMode` | enum | `step` | all temporal exports | `step` creates one entity per period; `interpolation` samples values at period midpoints and linearly interpolates between them. |
+| `polygonHeightMultiplier` | number | `1000.0` | `polygon` | Multiplier for extruded polygon heights in metres. |
+| `polygonFillOpacity` | number | `0.7` | `polygon`, `polygon2d`, `circle2d` | Fill opacity from `0` to `1`. |
+| `polygonOutline` | boolean | `true` | `polygon`, `polygon2d`, `circle2d` | Show entity outline. |
+| `circleRadius` | number | `1000.0` | `circle2d` | Circle radius in metres. |
+| `barHeightMultiplier` | number | `10000.0` | `bar` | Multiplier for cylinder heights in metres. |
+| `barRadiusMultiplier` | number | `10.0` | `bar` | Radius multiplier based on source pixel count. |
+| `barMinimumRadius` | number | `500.0` | `bar` | Minimum cylinder radius in metres. |
+| `showLabels` | boolean | `true` | all entity modes | Display value labels. |
+| `saveToDb` | boolean | `true` | all | Save generated CZML to MongoDB. |
+| `czmlID` | UUID | optional | all | Frontend-generated cross-system CZML UUID. |
+| `userID` / `projectID` | string | optional | all | Ownership metadata. |
+
+Example 2D circle export:
+
+```bash
+curl -X POST "http://localhost:8080/api/climate-indices/selections/{selection_id}/export-czml" \
+  -F "indexType=ppet" \
+  -F "visualisationType=circle2d" \
+  -F "circleRadius=2500" \
+  -F "colourmapName=viridis" \
+  -F "valueField=mean" \
+  -F "interpolationMode=step"
+```
 
 ---
 
