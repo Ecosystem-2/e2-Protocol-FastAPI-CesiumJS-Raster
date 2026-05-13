@@ -215,6 +215,7 @@ class PolygonWithStatistics(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
+    title: Optional[str] = Field(default=None, max_length=200, description="User-defined label for this polygon (e.g., 'Central Area')")
     geometry: PolygonGeometry = Field(..., description="GeoJSON polygon geometry")
     centroid: Dict[str, float] = Field(..., description="Computed centroid {lon, lat}")
     statistics: List[SelectionStatistics] = Field(
@@ -266,10 +267,10 @@ class CZMLExportOptions(BaseModel):
 
     model_config = ConfigDict(str_strip_whitespace=True, populate_by_name=True)
 
-    visualisation_type: Literal["bar", "polygon"] = Field(
+    visualisation_type: Literal["bar", "polygon", "polygon2d", "circle2d"] = Field(
         default="polygon",
         alias="visualisationType",
-        description="Cesium entity type: bar (3D cylinders) or polygon (extruded shapes)"
+        description="Cesium entity type: bar, polygon, polygon2d, or circle2d"
     )
 
     colourmap_name: str = Field(
@@ -329,13 +330,20 @@ class CZMLExportOptions(BaseModel):
         ge=0.0,
         le=1.0,
         alias="polygonFillOpacity",
-        description="Fill opacity for extruded polygons (0-1)"
+        description="Fill opacity for polygon visualisations (0-1)"
     )
 
     polygon_outline: bool = Field(
         default=True,
         alias="polygonOutline",
         description="Show polygon outline"
+    )
+
+    circle_radius: float = Field(
+        default=1000.0,
+        gt=0,
+        alias="circleRadius",
+        description="Radius in metres for 2D circle visualisation"
     )
 
     show_labels: bool = Field(default=True, alias="showLabels", description="Display value labels on entities")

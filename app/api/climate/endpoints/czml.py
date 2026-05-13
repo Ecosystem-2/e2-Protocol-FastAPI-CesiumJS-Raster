@@ -6,7 +6,6 @@ import json
 from typing import Optional, List
 
 from fastapi import APIRouter, Form, HTTPException, Path, Query, status
-from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.climate_indices import CZMLExportOptions, CZMLRecord, SelectionRepository, CZMLRepository
@@ -102,15 +101,18 @@ async def get_colourmaps_by_category() -> ColourmapCategoriesResponse:
 async def export_selection_czml(
     id: str = Path(..., description="MongoDB ObjectId of the selection"),
     index_type: str = Form(..., alias="indexType", description="Climate index type (ppet, wbgt, etc.)"),
-    visualisation_type: str = Form("polygon", alias="visualisationType", description="bar or polygon"),
+    visualisation_type: str = Form("polygon", alias="visualisationType", description="bar, polygon, polygon2d, or circle2d"),
     colourmap_name: str = Form("viridis", alias="colourmapName", description="Matplotlib colourmap name"),
     scale_min: Optional[float] = Form(None, alias="scaleMin"),
     scale_max: Optional[float] = Form(None, alias="scaleMax"),
     value_field: str = Form("mean", alias="valueField", description="mean, min, max, median, or std"),
     bar_height_multiplier: float = Form(10000.0, alias="barHeightMultiplier", gt=0),
+    bar_radius_multiplier: float = Form(10.0, alias="barRadiusMultiplier", gt=0),
+    bar_minimum_radius: float = Form(500.0, alias="barMinimumRadius", ge=0),
     polygon_height_multiplier: float = Form(1000.0, alias="polygonHeightMultiplier", gt=0),
     polygon_fill_opacity: float = Form(0.7, alias="polygonFillOpacity", ge=0.0, le=1.0),
     polygon_outline: bool = Form(True, alias="polygonOutline"),
+    circle_radius: float = Form(1000.0, alias="circleRadius", gt=0),
     show_labels: bool = Form(True, alias="showLabels"),
     interpolation_mode: str = Form("step", alias="interpolationMode", description="step or interpolation"),
     save_to_db: bool = Form(True, alias="saveToDb", description="Save CZML to database"),
@@ -146,9 +148,12 @@ async def export_selection_czml(
             scale_max=scale_max,
             value_field=value_field,  # type: ignore
             bar_height_multiplier=bar_height_multiplier,
+            bar_radius_multiplier=bar_radius_multiplier,
+            bar_minimum_radius=bar_minimum_radius,
             polygon_height_multiplier=polygon_height_multiplier,
             polygon_fill_opacity=polygon_fill_opacity,
             polygon_outline=polygon_outline,
+            circle_radius=circle_radius,
             show_labels=show_labels,
             interpolation_mode=interpolation_mode  # type: ignore
         )
@@ -229,7 +234,7 @@ async def get_czml_document(
             detail=f"CZML document not found: {id}"
         )
     
-    return record.model_dump(by_alias=True)
+    return record.model_dump(by_alias=True, mode="json")
 
 
 @router.get(
@@ -250,7 +255,7 @@ async def get_czml_by_czml_id(
             detail=f"CZML document not found with czmlID: {czmlID}"
         )
     
-    return record.model_dump(by_alias=True)
+    return record.model_dump(by_alias=True, mode="json")
 
 
 @router.get(
@@ -275,7 +280,7 @@ async def list_czml_for_selection(
     czml_repo = CZMLRepository()
     records = czml_repo.get_czml_by_selection(id, index_type, visualisation_type)
     
-    return [record.model_dump(by_alias=True) for record in records]
+    return [record.model_dump(by_alias=True, mode="json") for record in records]
 
 
 @router.delete(
@@ -311,10 +316,15 @@ async def update_czml_document(
     description: Optional[str] = Form(None, description="CZML document description"),
     user_id: Optional[str] = Form(None, alias="userID", description="Owner user UUID"),
     project_id: Optional[str] = Form(None, alias="projectID", description="Project UUID"),
+    user_id_snake: Optional[str] = Form(None, alias="user_id", include_in_schema=False),
+    project_id_snake: Optional[str] = Form(None, alias="project_id", include_in_schema=False),
 ) -> dict:
     """Update CZML document metadata fields."""
+    resolved_user_id = user_id if user_id is not None else user_id_snake
+    resolved_project_id = project_id if project_id is not None else project_id_snake
+
     # Check at least one field is provided
-    if all(v is None for v in [title, description, user_id, project_id]):
+    if all(v is None for v in [title, description, resolved_user_id, resolved_project_id]):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="At least one field (title, description, userID, projectID) must be provided."
@@ -325,8 +335,8 @@ async def update_czml_document(
         id,
         title=title,
         description=description,
-        user_id=user_id,
-        project_id=project_id,
+        user_id=resolved_user_id,
+        project_id=resolved_project_id,
     )
 
     if not updated:
@@ -337,5 +347,5 @@ async def update_czml_document(
 
     return {
         "message": "CZML document updated successfully",
-        "czml": updated.model_dump(by_alias=True),
+        "czml": updated.model_dump(by_alias=True, mode="json"),
     }

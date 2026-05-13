@@ -27,6 +27,16 @@ This service ingests GeoTIFF climate index files, stores them in Google Cloud St
 3. Metadata stored in MongoDB
 4. Tiles served via `/tiles/{asset_id}/{z}/{x}/{y}.png`
 5. Polygon queries via `/query/polygon`
+6. Saved polygon selections exported to CZML via `/climate-indices/selections/{id}/export-czml`
+
+### CZML Visualisation Modes
+CZML export supports:
+- `polygon` — extruded coloured polygon geometry
+- `polygon2d` — flat coloured polygon geometry
+- `circle2d` — flat coloured centroid circles with user-defined radius
+- `bar` — 3D centroid cylinders
+
+See [API Reference](API.md#czml-export--cesium-visualisation) for request options such as `circleRadius`, `polygonHeightMultiplier`, colourmaps, opacity, and interpolation mode.
 
 
 ## Technology Stack

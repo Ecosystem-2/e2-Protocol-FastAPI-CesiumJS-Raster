@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
 from typing import Any
 
 import numpy as np
 
 from app.climate_indices.models import PolygonSelectionRecord, CZMLExportOptions
-from app.climate_indices.czml_description import build_description_html, PeriodStats
+from app.climate_indices.czml_description import (
+    build_description_html,
+    build_entity_name,
+    build_period_stats,
+    build_polygon_title,
+)
+from app.climate_indices.czml_time import period_midpoint_iso, period_midpoint_isos
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
 
@@ -19,37 +24,24 @@ def _build_sampled_bar_height(stats_group: list, options: CZMLExportOptions) -> 
     """
     Build a sampled cylinder length property for interpolation mode.
     
-    Adds samples at both period start AND end to hold value constant within each period,
-    plus a far-future sample to keep the last value visible.
+    Adds one sample at each period midpoint, so values represent the centre of
+    each climatological period and interpolate smoothly between representative
+    periods.
     """
     samples = []
-    last_height = 0
-    
     for stat in stats_group:
-        if not stat.time_range or not stat.time_range.start:
+        sample_time = period_midpoint_iso(stat)
+        if not sample_time:
             continue
         value = getattr(stat, options.value_field)
         if value is None:
             continue
         
         height = value * options.bar_height_multiplier
-        last_height = height
-        
-        # Add sample at period START
-        iso_start = stat.time_range.start.isoformat()
-        samples.extend([iso_start, height])
-        
-        # Add sample at period END (minus 1 day) with same value
-        if stat.time_range.end:
-            end_time = stat.time_range.end - timedelta(days=1)
-            iso_end = end_time.isoformat()
-            samples.extend([iso_end, height])
+        samples.extend([sample_time, height])
     
     if not samples:
         return {"number": 0}
-    
-    # Add far-future sample to keep last value visible
-    samples.extend(["2200-01-01T00:00:00Z", last_height])
     
     return {
         "number": samples,
@@ -67,14 +59,12 @@ def _build_sampled_bar_colour(
     """
     Build a sampled colour property for bar interpolation mode.
     
-    Adds samples at both period start AND end to hold colour constant within each period,
-    plus a far-future sample to keep the last colour visible.
+    Adds one sample at each period midpoint, matching sampled height.
     """
     samples = []
-    last_rgba = (128, 128, 128, 255)
-    
     for stat in stats_group:
-        if not stat.time_range or not stat.time_range.start:
+        sample_time = period_midpoint_iso(stat)
+        if not sample_time:
             continue
         value = getattr(stat, options.value_field)
         if value is None:
@@ -83,26 +73,47 @@ def _build_sampled_bar_colour(
         r, g, b, a = colourmap_interpret(
             vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
         )
-        last_rgba = (r, g, b, a)
-        
-        # Add sample at period START
-        iso_start = stat.time_range.start.isoformat()
-        samples.extend([iso_start, r, g, b, a])
-        
-        # Add sample at period END (minus 1 day) with same colour
-        if stat.time_range.end:
-            end_time = stat.time_range.end - timedelta(days=1)
-            iso_end = end_time.isoformat()
-            samples.extend([iso_end, r, g, b, a])
+        samples.extend([sample_time, r, g, b, a])
     
     if not samples:
         return {"rgba": [128, 128, 128, 255]}
     
-    # Add far-future sample to keep last colour visible
-    samples.extend(["2200-01-01T00:00:00Z", last_rgba[0], last_rgba[1], last_rgba[2], last_rgba[3]])
-    
     return {
         "rgba": samples,
+        "interpolationAlgorithm": "LINEAR",
+        "interpolationDegree": 1
+    }
+
+
+def _build_sampled_bar_position(
+    stats_group: list,
+    options: CZMLExportOptions,
+    lon: float,
+    lat: float
+) -> dict:
+    """
+    Build a sampled cartographicDegrees position so the cylinder centre
+    stays at height/2 as the animated length changes.
+
+    Format: [iso, lon, lat, z, iso, lon, lat, z, ...]
+    """
+    samples = []
+    for stat in stats_group:
+        sample_time = period_midpoint_iso(stat)
+        if not sample_time:
+            continue
+        value = getattr(stat, options.value_field)
+        if value is None:
+            continue
+
+        z = value * options.bar_height_multiplier / 2
+        samples.extend([sample_time, lon, lat, z])
+
+    if not samples:
+        return {"cartographicDegrees": [lon, lat, 0]}
+
+    return {
+        "cartographicDegrees": samples,
         "interpolationAlgorithm": "LINEAR",
         "interpolationDegree": 1
     }
@@ -147,9 +158,9 @@ def export_bar_czml(
             key=lambda s: s.time_range.start if s.time_range and s.time_range.start else ""
         )
         
-        # Determine index_type label and polygon name
+        # Determine index_type label and polygon name (use user-defined title if set)
         index_type = stats_list[0].index_type or "unknown"
-        poly_name = f"Poly{poly_idx + 1}"
+        poly_name = build_polygon_title(poly.title, poly_idx)
         
         # Calculate dynamic radius with minimum threshold for visibility
         pixel_count = stats_list[0].count if stats_list else 100
@@ -167,39 +178,26 @@ def export_bar_czml(
         )
         
         if has_temporal:
-            # Build list of PeriodStats for all periods
-            all_periods = [
-                PeriodStats(
-                    start=s.time_range.start.strftime('%Y-%m-%d'),
-                    end=s.time_range.end.strftime('%Y-%m-%d'),
-                    mean=s.mean,
-                    std=s.std,
-                    min=s.min,
-                    max=s.max,
-                    count=s.count,
-                    units=s.units or ''
-                )
-                for s in stats_list
-                if s.time_range and s.time_range.start and s.time_range.end
-            ]
+            all_periods = build_period_stats(stats_list)
             
             if options.interpolation_mode == "interpolation":
                 # Create single entity with sampled (interpolated) properties
-                entity_id = f"{selection.title}_{poly_name.replace(' ', '_')}_bar"
+                entity_id = f"{selection.title.replace(' ', '_')}_{poly_name.replace(' ', '_')}_bar"
                 
                 sampled_height = _build_sampled_bar_height(stats_list, options)
                 sampled_colour = _build_sampled_bar_colour(stats_list, options, vmin, vmax)
+                sampled_position = _build_sampled_bar_position(stats_list, options, lon, lat)
                 
-                starts = [s.time_range.start for s in stats_list if s.time_range and s.time_range.start]
-                availability = f"{min(starts).isoformat()}/2200-01-01T00:00:00Z" if starts else None
+                midpoint_times = period_midpoint_isos(stats_list)
+                availability = f"{midpoint_times[0]}/{midpoint_times[-1]}" if midpoint_times else None
                 
                 first_stat = stats_list[0]
                 first_height = getattr(first_stat, options.value_field, 0) * options.bar_height_multiplier
                 
                 packet = {
                     "id": entity_id,
-                    "name": f"{poly_name}",
-                    "position": {"cartographicDegrees": [lon, lat, 0]},
+                    "name": build_entity_name(poly_name),
+                    "position": sampled_position,
                     "cylinder": {
                         "length": sampled_height,
                         "topRadius": bar_radius,
@@ -211,9 +209,10 @@ def export_bar_czml(
                         "shadows": "ENABLED"
                     },
                     "description": build_description_html(
-                        index_type=f"{poly_name} - {index_type}",
+                        index_type=index_type,
                         stat=first_stat,
                         height=first_height,
+                        entity_title=poly_name,
                         all_periods=all_periods,
                         is_interpolated=True
                     )
@@ -235,16 +234,16 @@ def export_bar_czml(
                         vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
                     )
                     
-                    entity_id = f"{selection.title}_{poly_name.replace(' ', '_')}_bar_{period_idx}"
+                    entity_id = f"{selection.title.replace(' ', '_')}_{poly_name.replace(' ', '_')}_bar_{period_idx}"
                     availability = f"{stat.time_range.start.isoformat()}/{stat.time_range.end.isoformat()}"
                     time_start = stat.time_range.start.strftime('%Y-%m-%d')
                     time_end = stat.time_range.end.strftime('%Y-%m-%d')
                     
                     packet = {
                         "id": entity_id,
-                        "name": f"{poly_name} ({time_start})",
+                        "name": build_entity_name(poly_name, time_start=time_start, time_end=time_end),
                         "availability": availability,
-                        "position": {"cartographicDegrees": [lon, lat, 0]},
+                        "position": {"cartographicDegrees": [lon, lat, height / 2]},
                         "cylinder": {
                             "length": height,
                             "topRadius": bar_radius,
@@ -256,9 +255,10 @@ def export_bar_czml(
                             "shadows": "ENABLED"
                         },
                         "description": build_description_html(
-                            index_type=f"{poly_name} - {index_type}",
+                            index_type=index_type,
                             stat=stat,
                             height=height,
+                            entity_title=poly_name,
                             time_start=time_start,
                             time_end=time_end,
                             all_periods=all_periods
@@ -268,7 +268,7 @@ def export_bar_czml(
                     logger.info(f"    Created step bar: {entity_id}")
         else:
             # No temporal data - create single static entity
-            entity_id = f"{selection.title}_{poly_name.replace(' ', '_')}_bar"
+            entity_id = f"{selection.title.replace(' ', '_')}_{poly_name.replace(' ', '_')}_bar"
             first_stat = stats_list[0]
             value = getattr(first_stat, options.value_field)
             
@@ -280,8 +280,8 @@ def export_bar_czml(
                 
                 packet = {
                     "id": entity_id,
-                    "name": poly_name,
-                    "position": {"cartographicDegrees": [lon, lat, 0]},
+                    "name": build_entity_name(poly_name),
+                    "position": {"cartographicDegrees": [lon, lat, height / 2]},
                     "cylinder": {
                         "length": height,
                         "topRadius": bar_radius,
@@ -293,9 +293,10 @@ def export_bar_czml(
                         "shadows": "ENABLED"
                     },
                     "description": build_description_html(
-                        index_type=f"{poly_name} - {index_type}",
+                        index_type=index_type,
                         stat=first_stat,
-                        height=height
+                        height=height,
+                        entity_title=poly_name
                     )
                 }
                 packets.append(packet)

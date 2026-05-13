@@ -44,6 +44,18 @@
       <div id="statusMessage" class="status-message"></div>
 
       <div class="control-panel">
+        <div style="margin-bottom: 12px;">
+          <label for="polygonTitle" style="display: block; font-size: 13px; font-weight: 600; color: #94a3b8; margin-bottom: 6px;">
+            Polygon Label <span style="color: #64748b; font-weight: 400;">(optional — set before drawing)</span>
+          </label>
+          <input
+            type="text"
+            id="polygonTitle"
+            placeholder="e.g. Central Area, Coastal Zone …"
+            maxlength="200"
+            style="width: 100%; padding: 8px 12px; background: rgba(30,41,59,0.8); border: 1px solid rgba(148,163,184,0.3); border-radius: 6px; color: #e2e8f0; font-size: 13px; box-sizing: border-box;"
+          />
+        </div>
         <button class="btn btn-primary" id="drawBtn" onclick="startDrawing()">
           ✏️ Draw Polygon & Auto-Query
         </button>
@@ -57,7 +69,7 @@
           📥 Export Pixel Data (CSV)
         </button>
         <div style="margin-top: 10px; padding: 10px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px; font-size: 13px; color: #78350f;">
-          <strong>Instructions:</strong> Left-click to add vertices, double-click to finish. Draw multiple polygons.
+          <strong>Instructions:</strong> Enter an optional label above, then left-click to add vertices, double-click to finish. Draw multiple polygons.
         </div>
       </div>
       
@@ -166,6 +178,7 @@ stats = response.json()
     let viewer = null;
     let drawnPolygons = []; // Store multiple polygon entities
     let allPolygonPositions = []; // Store all polygon positions for querying
+    let allPolygonTitles = []; // Store per-polygon labels (parallel to allPolygonPositions)
     let handler = null;
 
     UI.updateStepProgress(3);
@@ -276,20 +289,16 @@ stats = response.json()
             lastPolygon.isTemporary = false;
           }
 
-          // Store positions for querying
+          // Capture the polygon label entered before drawing
+          const polyTitleInput = document.getElementById('polygonTitle');
+          const polyTitle = polyTitleInput ? polyTitleInput.value.trim() || null : null;
+
+          // Store positions and title for querying
           allPolygonPositions.push(positions.slice());
+          allPolygonTitles.push(polyTitle);
 
-          // Save to workflow state
-          const coordinates = positions.map(pos => {
-            const cartographic = Cesium.Cartographic.fromCartesian(pos);
-            return [
-              Cesium.Math.toDegrees(cartographic.longitude),
-              Cesium.Math.toDegrees(cartographic.latitude)
-            ];
-          });
-          coordinates.push(coordinates[0]);
-
-          const allPolygonsGeoJSON = allPolygonPositions.map(posArray => {
+          // Save to workflow state — include title in each GeoJSON object
+          const allPolygonsGeoJSON = allPolygonPositions.map((posArray, idx) => {
             const coords = posArray.map(pos => {
               const cartographic = Cesium.Cartographic.fromCartesian(pos);
               return [
@@ -298,11 +307,16 @@ stats = response.json()
               ];
             });
             coords.push(coords[0]);
-            return { type: "Polygon", coordinates: [coords] };
+            const geom = { type: "Polygon", coordinates: [coords] };
+            if (allPolygonTitles[idx]) geom.title = allPolygonTitles[idx];
+            return geom;
           });
 
           WorkflowState.set('drawn_polygons', allPolygonsGeoJSON);
           WorkflowState.completeStep(3);
+
+          // Clear label input so next polygon starts fresh
+          if (polyTitleInput) polyTitleInput.value = '';
 
           // Show action buttons
           document.getElementById('clearBtn').style.display = 'block';
@@ -311,7 +325,8 @@ stats = response.json()
           document.getElementById('drawBtn').disabled = false;
           document.getElementById('drawBtn').textContent = 'Draw Another Polygon';
 
-          UI.showSuccess(`✓ Polygon ${allPolygonPositions.length} created with ${positions.length} vertices`);
+          const labelNote = polyTitle ? ` ("${polyTitle}")` : '';
+          UI.showSuccess(`✓ Polygon ${allPolygonPositions.length}${labelNote} created with ${positions.length} vertices`);
 
           // Auto-query statistics
           queryAllPolygons();
@@ -328,6 +343,7 @@ stats = response.json()
       });
       drawnPolygons = [];
       allPolygonPositions = [];
+      allPolygonTitles = [];
 
       if (handler) {
         handler.destroy();
@@ -446,20 +462,22 @@ stats = response.json()
 
         // Process each polygon for this asset
         assetResult.polygons?.forEach((polygonData, idx) => {
+          const polyTitle = allPolygonTitles[idx];
           const polygonLabel = `Polygon ${idx + 1}`;
 
           if (polygonData.error) {
             formatted["Assets"][assetLabel]["Polygons"][polygonLabel] = { "Error": polygonData.error };
           } else {
             const stats = polygonData.stats;
-            formatted["Assets"][assetLabel]["Polygons"][polygonLabel] = {
-              "Pixel Count": stats?.count || 0,
-              "Min": stats?.min?.toFixed(4) || "N/A",
-              "Max": stats?.max?.toFixed(4) || "N/A",
-              "Mean": stats?.mean?.toFixed(4) || "N/A",
-              "Std Dev": stats?.std?.toFixed(4) || "N/A",
-              "Median": stats?.median?.toFixed(4) || "N/A"
-            };
+            const entry = {};
+            if (polyTitle) entry["Title"] = polyTitle;
+            entry["Pixel Count"] = stats?.count || 0;
+            entry["Min"] = stats?.min?.toFixed(4) || "N/A";
+            entry["Max"] = stats?.max?.toFixed(4) || "N/A";
+            entry["Mean"] = stats?.mean?.toFixed(4) || "N/A";
+            entry["Std Dev"] = stats?.std?.toFixed(4) || "N/A";
+            entry["Median"] = stats?.median?.toFixed(4) || "N/A";
+            formatted["Assets"][assetLabel]["Polygons"][polygonLabel] = entry;
           }
         });
       });
@@ -493,20 +511,22 @@ stats = response.json()
 
       // Process each polygon
       assetResult.polygons?.forEach((polygonData, idx) => {
+        const polyTitle = allPolygonTitles[idx];
         const polygonLabel = `Polygon ${idx + 1}`;
 
         if (polygonData.error) {
           formatted["Polygons"][polygonLabel] = { "Error": polygonData.error };
         } else {
           const stats = polygonData.stats;
-          formatted["Polygons"][polygonLabel] = {
-            "Pixel Count": stats?.count || 0,
-            "Min": stats?.min?.toFixed(4) || "N/A",
-            "Max": stats?.max?.toFixed(4) || "N/A",
-            "Mean": stats?.mean?.toFixed(4) || "N/A",
-            "Std Dev": stats?.std?.toFixed(4) || "N/A",
-            "Median": stats?.median?.toFixed(4) || "N/A"
-          };
+          const entry = {};
+          if (polyTitle) entry["Title"] = polyTitle;
+          entry["Pixel Count"] = stats?.count || 0;
+          entry["Min"] = stats?.min?.toFixed(4) || "N/A";
+          entry["Max"] = stats?.max?.toFixed(4) || "N/A";
+          entry["Mean"] = stats?.mean?.toFixed(4) || "N/A";
+          entry["Std Dev"] = stats?.std?.toFixed(4) || "N/A";
+          entry["Median"] = stats?.median?.toFixed(4) || "N/A";
+          formatted["Polygons"][polygonLabel] = entry;
         }
       });
 
