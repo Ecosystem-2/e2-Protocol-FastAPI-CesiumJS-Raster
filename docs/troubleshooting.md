@@ -237,6 +237,27 @@ python -c "import rasterio; rasterio.open('your-file.tif')"
 
 ## API Issues
 
+### Newly Uploaded Files Return "File Not Found" When Serving Tiles
+
+**Error**: `Tile render failed: '/vsigs/.../uuid.cog.tif' does not exist in the file system`
+
+**Cause**: GDAL caches GCS file-not-found results in an in-memory VSI curl cache. Files
+uploaded to GCS after the process started can remain invisible to `COGReader` until the cache
+is cleared.
+
+**Immediate fix** (unblocks without redeploy):
+```bash
+docker compose restart
+```
+
+**Permanent fix**: Ensure the deployed code includes the `_clear_gdal_vsi_cache()` fix in
+`blob_storage.py` (removes early return so rasterio's bundled libgdal is also cleared).
+
+For full investigation details and the two-instance root cause, see
+[gdal-vsi-cache.md](gdal-vsi-cache.md).
+
+---
+
 ### Tiles Not Displaying
 
 **Problem**: Tiles show blank or don't load in Cesium
