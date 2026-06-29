@@ -24,7 +24,14 @@ def _clear_gdal_vsi_cache() -> None:
     Strategy:
       1. System-installed GDAL (Linux/Docker with libgdal-dev installed via apt).
       2. rasterio's bundled GDAL dylib/so (macOS .dylibs/, Linux .libs/).
+
+    Both are attempted unconditionally — in Docker the system GDAL and rasterio's
+    bundled GDAL are separate in-process library instances with independent caches.
+    COGReader uses rasterio's bundled instance, so clearing only the system GDAL is
+    not sufficient.
     """
+    cleared = False
+
     # 1. System GDAL (Linux/Docker)
     lib_name = ctypes.util.find_library("gdal")
     if lib_name:
@@ -33,11 +40,12 @@ def _clear_gdal_vsi_cache() -> None:
             lib.VSICurlClearCache.restype = None
             lib.VSICurlClearCache()
             logger.debug("Cleared GDAL VSI cache via system library: %s", lib_name)
-            return
+            cleared = True
         except OSError:
             pass
 
-    # 2. rasterio's bundled GDAL (macOS .dylibs/, Linux .libs/)
+    # 2. rasterio's bundled GDAL (macOS .dylibs/, Linux .libs/) — always try even if
+    # system GDAL succeeded, as COGReader uses rasterio's own libgdal instance
     try:
         import rasterio  # type: ignore
         rasterio_dir = pathlib.Path(rasterio.__file__).parent
@@ -49,11 +57,12 @@ def _clear_gdal_vsi_cache() -> None:
                     lib.VSICurlClearCache.restype = None
                     lib.VSICurlClearCache()
                     logger.debug("Cleared GDAL VSI cache via rasterio bundled library: %s", gdal_libs[0])
-                    return
+                    cleared = True
     except Exception:
         pass
 
-    logger.warning("Could not clear GDAL VSI cache: no suitable GDAL library found")
+    if not cleared:
+        logger.warning("Could not clear GDAL VSI cache: no suitable GDAL library found")
 
 
 class GCSBlobStore:
