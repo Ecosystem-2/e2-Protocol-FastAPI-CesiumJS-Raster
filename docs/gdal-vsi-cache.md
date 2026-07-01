@@ -160,11 +160,24 @@ This warning means neither strategy found a loadable GDAL library. Possible caus
   changed (e.g. major version bump from `libgdal.so.34` to `libgdal.so.35`)
 - A non-standard rasterio build that embeds GDAL under a different name
 
-In that case, adding `CPL_VSIL_CURL_CACHE_SIZE=0` to `docker-compose.yml` disables the
-VSI cache entirely as a fallback (at some performance cost for repeated reads of the same
-files):
+Do not use `CPL_VSIL_CURL_CACHE_SIZE=0` as a fallback with GDAL 3.10.x. GDAL rejects
+that value and falls back to its minimum cache size, so it does not disable the cache.
+
+Use the following runtime options instead to avoid stale directory/sibling-file state
+around `/vsigs/` opens:
 
 ```yaml
 environment:
-  CPL_VSIL_CURL_CACHE_SIZE: "0"
+  GDAL_DISABLE_READDIR_ON_OPEN: "EMPTY_DIR"
+  VSI_CACHE: "FALSE"
+  GDAL_VERIFY_AFTER_UPLOAD: "true"
+  GDAL_TILE_DIAGNOSTICS: "true"
 ```
+
+`GDAL_VERIFY_AFTER_UPLOAD=true` makes the API explicitly open the uploaded object through
+rasterio/GDAL after upload. This is both a diagnostic check and a deliberate warm-up of
+the exact `/vsigs/...` path the tile endpoint will later read.
+
+`GDAL_TILE_DIAGNOSTICS=true` adds tile-request diagnostics, including a GCS metadata probe
+before `COGReader` opens the raster. Keep this enabled while diagnosing the upload/tile
+visibility issue, but turn it off for normal high-volume tile serving.
