@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 from typing import Optional, Tuple
+from urllib.parse import urlparse
 
 import numpy as np
 from fastapi import APIRouter, HTTPException, Path, Query, status
@@ -17,6 +19,65 @@ from app.core.logging import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+def _env_flag_enabled(name: str, *, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _log_gcs_visibility(uri: str) -> None:
+    """Log whether the Python GCS client can see the COG URI before GDAL opens it."""
+    if not _env_flag_enabled("GDAL_TILE_DIAGNOSTICS"):
+        return
+
+    if not uri.startswith("gs://"):
+        logger.info("Skipping GCS visibility probe for non-GCS URI: %s", uri)
+        return
+
+    try:
+        from google.cloud import storage  # type: ignore
+
+        parsed = urlparse(uri)
+        bucket_name = parsed.netloc
+        blob_name = parsed.path.lstrip("/")
+        blob = storage.Client().bucket(bucket_name).blob(blob_name)
+        exists = blob.exists()
+        if exists:
+            blob.reload()
+        logger.info(
+            "Tile GCS visibility probe: uri=%s exists=%s size=%s generation=%s updated=%s",
+            uri,
+            exists,
+            blob.size if exists else None,
+            blob.generation if exists else None,
+            blob.updated if exists else None,
+        )
+    except Exception as exc:
+        logger.warning("Tile GCS visibility probe failed for %s: %s", uri, exc)
+
+
+def _log_rasterio_runtime(uri: str) -> None:
+    """Log the GDAL/rasterio runtime that rio-tiler will use for tile rendering."""
+    if not _env_flag_enabled("GDAL_TILE_DIAGNOSTICS"):
+        return
+
+    try:
+        import rasterio  # type: ignore
+
+        logger.info(
+            "Tile rasterio runtime: uri=%s rasterio=%s gdal_version=%s "
+            "GDAL_DISABLE_READDIR_ON_OPEN=%s VSI_CACHE=%s",
+            uri,
+            getattr(rasterio, "__file__", "unknown"),
+            getattr(rasterio, "__gdal_version__", "unknown"),
+            os.getenv("GDAL_DISABLE_READDIR_ON_OPEN"),
+            os.getenv("VSI_CACHE"),
+        )
+    except Exception as exc:
+        logger.warning("Tile rasterio runtime probe failed for %s: %s", uri, exc)
 
 
 # ============================================================================
@@ -115,6 +176,8 @@ async def tile_png(
         )
 
     try:
+        _log_gcs_visibility(asset.storage.cog.uri)
+        _log_rasterio_runtime(asset.storage.cog.uri)
         with COGReader(input=asset.storage.cog.uri) as src:  # type: ignore[call-arg]
             tile = src.tile(x, y, z, tilesize=256)
             arr = tile.data[0]
@@ -154,4 +217,3 @@ async def tile_png(
         ) from exc
 
     return Response(content, media_type="image/png")
-
