@@ -30,6 +30,10 @@ services:
       
       # Application settings
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      GDAL_DISABLE_READDIR_ON_OPEN: "EMPTY_DIR"
+      VSI_CACHE: "FALSE"
+      GDAL_VERIFY_AFTER_UPLOAD: "true"
+      GDAL_TILE_DIAGNOSTICS: "true"
       
       # Demo frontend configuration
       DEMO_API_BASE: ${DEMO_API_BASE:-http://localhost:8080/api/climate-indices}

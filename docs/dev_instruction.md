@@ -14,13 +14,13 @@ Choose either HTTPS or SSH method:
 
 ### HTTPS
 ```bash
-git clone https://github.com/Ecosystem-2/HOB-FastAPI.Python.git
+git clone https://github.com/ORG/REPO.git
 cd HOB-FastAPI.Python
 ```
 
 ### SSH
 ```bash
-git clone git@github.com:Ecosystem-2/HOB-FastAPI.Python.git
+git clone git@github.com:ORG/REPO.git
 cd HOB-FastAPI.Python
 ```
 
