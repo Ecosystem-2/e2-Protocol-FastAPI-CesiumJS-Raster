@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ctypes
 import ctypes.util
+import os
 import pathlib
 import uuid
 from typing import Optional
@@ -11,6 +12,20 @@ from typing import Optional
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _env_flag_enabled(name: str, *, default: bool = False) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _to_vsigs_uri(uri: str) -> str:
+    """Convert gs://bucket/path to GDAL's /vsigs/bucket/path URI."""
+    if uri.startswith("gs://"):
+        return "/vsigs/" + uri.removeprefix("gs://")
+    return uri
 
 
 def _clear_gdal_vsi_cache() -> None:
@@ -41,8 +56,8 @@ def _clear_gdal_vsi_cache() -> None:
             lib.VSICurlClearCache()
             logger.debug("Cleared GDAL VSI cache via system library: %s", lib_name)
             cleared = True
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.debug("Could not clear GDAL VSI cache via system library %s: %s", lib_name, exc)
 
     # 2. rasterio's bundled GDAL (macOS .dylibs/, Linux .libs/) — always try even if
     # system GDAL succeeded, as COGReader uses rasterio's own libgdal instance
@@ -58,11 +73,44 @@ def _clear_gdal_vsi_cache() -> None:
                     lib.VSICurlClearCache()
                     logger.debug("Cleared GDAL VSI cache via rasterio bundled library: %s", gdal_libs[0])
                     cleared = True
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Could not clear GDAL VSI cache via rasterio bundled library: %s", exc)
 
     if not cleared:
         logger.warning("Could not clear GDAL VSI cache: no suitable GDAL library found")
+
+
+def _log_rasterio_visibility(uri: str) -> None:
+    """Log whether rasterio/GDAL can see a freshly uploaded object in this process."""
+    if not _env_flag_enabled("GDAL_VERIFY_AFTER_UPLOAD"):
+        return
+
+    try:
+        import rasterio  # type: ignore
+
+        vsi_uri = _to_vsigs_uri(uri)
+        logger.info(
+            "GDAL/rasterio visibility probe starting: uri=%s vsi_uri=%s "
+            "rasterio=%s gdal_version=%s GDAL_DISABLE_READDIR_ON_OPEN=%s VSI_CACHE=%s",
+            uri,
+            vsi_uri,
+            getattr(rasterio, "__file__", "unknown"),
+            getattr(rasterio, "__gdal_version__", "unknown"),
+            os.getenv("GDAL_DISABLE_READDIR_ON_OPEN"),
+            os.getenv("VSI_CACHE"),
+        )
+        with rasterio.open(vsi_uri) as dataset:
+            logger.info(
+                "GDAL/rasterio visibility probe succeeded: uri=%s driver=%s size=%sx%s count=%s crs=%s",
+                uri,
+                dataset.driver,
+                dataset.width,
+                dataset.height,
+                dataset.count,
+                dataset.crs,
+            )
+    except Exception as exc:
+        logger.warning("GDAL/rasterio visibility probe failed for %s: %s", uri, exc)
 
 
 class GCSBlobStore:
@@ -125,7 +173,19 @@ class GCSBlobStore:
         blob.upload_from_string(payload, content_type=content_type or "image/tiff")
         uri = f"gs://{self.bucket_name}/{name}"
         logger.info("Stored blob in GCS at %s (%s bytes)", uri, len(payload))
+        try:
+            blob.reload()
+            logger.info(
+                "Verified GCS blob after upload: uri=%s exists=true size=%s generation=%s updated=%s",
+                uri,
+                blob.size,
+                blob.generation,
+                blob.updated,
+            )
+        except Exception as exc:
+            logger.warning("Could not verify GCS blob metadata after upload: uri=%s error=%s", uri, exc)
         _clear_gdal_vsi_cache()
+        _log_rasterio_visibility(uri)
         return uri
 
     def delete_blob(self, uri: str) -> bool:
