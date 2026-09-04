@@ -10,12 +10,20 @@ Unified MongoDB setup for both asynchronous (Motor) and synchronous (PyMongo) ac
 from __future__ import annotations
 
 import os
+import re
 from typing import Optional, AsyncGenerator, Generator, TYPE_CHECKING
 from contextlib import asynccontextmanager, contextmanager
 
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+_URI_CREDENTIALS = re.compile(r"://[^/@]+@")
+
+
+def redact_uri(uri: str) -> str:
+    """Strip user:password from a Mongo URI so it is safe to log."""
+    return _URI_CREDENTIALS.sub("://***@", uri)
 
 if TYPE_CHECKING:
     from motor.motor_asyncio import AsyncIOMotorClient
@@ -86,7 +94,7 @@ def _new_async_client(uri: Optional[str] = None):
 
     mongo_uri = uri or get_mongo_uri()
     kwargs = _client_kwargs_for_uri(mongo_uri)
-    logger.info(f"Connecting (async) to MongoDB at {mongo_uri}")
+    logger.info(f"Connecting (async) to MongoDB at {redact_uri(mongo_uri)}")
     return AsyncIOMotorClient(mongo_uri, **kwargs)
 
 
@@ -141,7 +149,7 @@ def _new_sync_client(uri: Optional[str] = None):
 
     mongo_uri = uri or get_mongo_uri()
     kwargs = _client_kwargs_for_uri(mongo_uri)
-    logger.info(f"Connecting (sync) to MongoDB at {mongo_uri}")
+    logger.info(f"Connecting (sync) to MongoDB at {redact_uri(mongo_uri)}")
     return MongoClient(mongo_uri, **kwargs)
 
 

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from app.core.middleware import add_middlewares
-# from app.core.lifespan import lifespan
+from app.core.lifespan import lifespan
 from app.core.logging import configure_logging
 from app.api.router import api_router, tags_metadata
 from dotenv import load_dotenv
@@ -17,7 +17,7 @@ def create_app() -> FastAPI:
         title="HOB FastAPI",
         description="Data ingestion and conversion service for CesiumJS visualisation",
         version="1.0.0",
-        # lifespan=lifespan,
+        lifespan=lifespan,
         openapi_tags=tags_metadata,
     )
 
