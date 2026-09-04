@@ -60,19 +60,22 @@ def _circle_packet_base(
     colour: dict[str, Any],
 ) -> dict[str, Any]:
     """Build the shared flat circle packet structure."""
+    ellipse: dict[str, Any] = {
+        "semiMajorAxis": options.circle_radius,
+        "semiMinorAxis": options.circle_radius,
+        "height": 0,
+        "material": {"solidColor": {"color": colour}},
+    }
+    if options.polygon_outline:
+        ellipse["outline"] = True
+        ellipse["outlineColor"] = {"rgba": [255, 255, 255, 220]}
+        ellipse["outlineWidth"] = 1
+
     return {
         "id": entity_id,
         "name": name,
         "position": {"cartographicDegrees": [lon, lat, 0]},
-        "ellipse": {
-            "semiMajorAxis": options.circle_radius,
-            "semiMinorAxis": options.circle_radius,
-            "height": 0,
-            "material": {"solidColor": {"color": colour}},
-            "outline": options.polygon_outline,
-            "outlineColor": {"rgba": [255, 255, 255, 220]},
-            "outlineWidth": 1,
-        }
+        "ellipse": ellipse,
     }
 
 
