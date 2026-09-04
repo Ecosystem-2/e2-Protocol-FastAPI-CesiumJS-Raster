@@ -202,7 +202,7 @@ def export_bar_czml(
                     "cylinder": {
                         "length": sampled_height,
                         "topRadius": bar_radius,
-                        "bottomRadius": bar_radius * 1.2,  # Slightly wider base for stability
+                        "bottomRadius": bar_radius,
                         "material": {"solidColor": {"color": sampled_colour}},
                         "outline": options.polygon_outline,
                         "outlineColor": {"rgba": [40, 40, 40, 255]},
@@ -249,7 +249,7 @@ def export_bar_czml(
                         "cylinder": {
                             "length": height,
                             "topRadius": bar_radius,
-                            "bottomRadius": bar_radius * 1.2,
+                            "bottomRadius": bar_radius,
                             "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
                             "outline": options.polygon_outline,
                             "outlineColor": {"rgba": [40, 40, 40, 255]},
@@ -288,7 +288,7 @@ def export_bar_czml(
                     "cylinder": {
                         "length": height,
                         "topRadius": bar_radius,
-                        "bottomRadius": bar_radius * 1.2,
+                        "bottomRadius": bar_radius,
                         "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
                         "outline": options.polygon_outline,
                         "outlineColor": {"rgba": [40, 40, 40, 255]},
