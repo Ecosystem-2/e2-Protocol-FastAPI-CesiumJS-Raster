@@ -171,10 +171,11 @@ def _build_interpolated_polygon_packet(
                 "color": sampled_colour
             }
         },
-        "outline": options.polygon_outline,
-        "outlineColor": {"rgba": [255, 255, 255, 200]},
-        "outlineWidth": 1,
     }
+    if options.polygon_outline:
+        polygon["outline"] = True
+        polygon["outlineColor"] = {"rgba": [255, 255, 255, 200]}
+        polygon["outlineWidth"] = 1
     if sampled_height is not None:
         polygon.update({
             "extrudedHeight": sampled_height,
@@ -431,10 +432,11 @@ def _build_polygon_packet(
                 "color": {"rgba": [r, g, b, a]}
             }
         },
-        "outline": options.polygon_outline,
-        "outlineColor": {"rgba": [255, 255, 255, 200]},
-        "outlineWidth": 1,
     }
+    if options.polygon_outline:
+        polygon["outline"] = True
+        polygon["outlineColor"] = {"rgba": [255, 255, 255, 200]}
+        polygon["outlineWidth"] = 1
     if not is_flat:
         polygon.update({
             "extrudedHeight": extruded_height,

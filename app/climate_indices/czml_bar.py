@@ -195,20 +195,23 @@ def export_bar_czml(
                 first_stat = stats_list[0]
                 first_height = getattr(first_stat, options.value_field, 0) * options.bar_height_multiplier
                 
+                cylinder: dict[str, Any] = {
+                    "length": sampled_height,
+                    "topRadius": bar_radius,
+                    "bottomRadius": bar_radius,
+                    "material": {"solidColor": {"color": sampled_colour}},
+                    "shadows": "ENABLED"
+                }
+                if options.polygon_outline:
+                    cylinder["outline"] = True
+                    cylinder["outlineColor"] = {"rgba": [40, 40, 40, 255]}
+                    cylinder["outlineWidth"] = 2
+
                 packet = {
                     "id": entity_id,
                     "name": build_entity_name(poly_name),
                     "position": sampled_position,
-                    "cylinder": {
-                        "length": sampled_height,
-                        "topRadius": bar_radius,
-                        "bottomRadius": bar_radius,
-                        "material": {"solidColor": {"color": sampled_colour}},
-                        "outline": options.polygon_outline,
-                        "outlineColor": {"rgba": [40, 40, 40, 255]},
-                        "outlineWidth": 2,
-                        "shadows": "ENABLED"
-                    },
+                    "cylinder": cylinder,
                     "description": build_description_html(
                         index_type=index_type,
                         stat=first_stat,
@@ -241,21 +244,24 @@ def export_bar_czml(
                     time_start = stat.time_range.start.strftime('%Y-%m-%d')
                     time_end = stat.time_range.end.strftime('%Y-%m-%d')
 
+                    cylinder: dict[str, Any] = {
+                        "length": height,
+                        "topRadius": bar_radius,
+                        "bottomRadius": bar_radius,
+                        "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
+                        "shadows": "ENABLED"
+                    }
+                    if options.polygon_outline:
+                        cylinder["outline"] = True
+                        cylinder["outlineColor"] = {"rgba": [40, 40, 40, 255]}
+                        cylinder["outlineWidth"] = 2
+
                     packet = {
                         "id": entity_id,
                         "name": build_entity_name(poly_name, time_start=time_start, time_end=time_end),
                         "availability": availability,
                         "position": {"cartographicDegrees": [lon, lat, height / 2]},
-                        "cylinder": {
-                            "length": height,
-                            "topRadius": bar_radius,
-                            "bottomRadius": bar_radius,
-                            "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
-                            "outline": options.polygon_outline,
-                            "outlineColor": {"rgba": [40, 40, 40, 255]},
-                            "outlineWidth": 2,
-                            "shadows": "ENABLED"
-                        },
+                        "cylinder": cylinder,
                         "description": build_description_html(
                             index_type=index_type,
                             stat=stat,
@@ -281,20 +287,23 @@ def export_bar_czml(
                 )
                 alpha = int(options.polygon_fill_opacity * 255)
 
+                cylinder: dict[str, Any] = {
+                    "length": height,
+                    "topRadius": bar_radius,
+                    "bottomRadius": bar_radius,
+                    "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
+                    "shadows": "ENABLED"
+                }
+                if options.polygon_outline:
+                    cylinder["outline"] = True
+                    cylinder["outlineColor"] = {"rgba": [40, 40, 40, 255]}
+                    cylinder["outlineWidth"] = 2
+
                 packet = {
                     "id": entity_id,
                     "name": build_entity_name(poly_name),
                     "position": {"cartographicDegrees": [lon, lat, height / 2]},
-                    "cylinder": {
-                        "length": height,
-                        "topRadius": bar_radius,
-                        "bottomRadius": bar_radius,
-                        "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
-                        "outline": options.polygon_outline,
-                        "outlineColor": {"rgba": [40, 40, 40, 255]},
-                        "outlineWidth": 2,
-                        "shadows": "ENABLED"
-                    },
+                    "cylinder": cylinder,
                     "description": build_description_html(
                         index_type=index_type,
                         stat=first_stat,
