@@ -58,10 +58,11 @@ def _build_sampled_bar_colour(
 ) -> dict:
     """
     Build a sampled colour property for bar interpolation mode.
-    
+
     Adds one sample at each period midpoint, matching sampled height.
     """
     samples = []
+    alpha = int(options.polygon_fill_opacity * 255)
     for stat in stats_group:
         sample_time = period_midpoint_iso(stat)
         if not sample_time:
@@ -69,14 +70,14 @@ def _build_sampled_bar_colour(
         value = getattr(stat, options.value_field)
         if value is None:
             continue
-        
-        r, g, b, a = colourmap_interpret(
+
+        r, g, b, _ = colourmap_interpret(
             vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
         )
-        samples.extend([sample_time, r, g, b, a])
-    
+        samples.extend([sample_time, r, g, b, alpha])
+
     if not samples:
-        return {"rgba": [128, 128, 128, 255]}
+        return {"rgba": [128, 128, 128, alpha]}
     
     return {
         "rgba": samples,
@@ -203,7 +204,7 @@ def export_bar_czml(
                         "topRadius": bar_radius,
                         "bottomRadius": bar_radius * 1.2,  # Slightly wider base for stability
                         "material": {"solidColor": {"color": sampled_colour}},
-                        "outline": True,
+                        "outline": options.polygon_outline,
                         "outlineColor": {"rgba": [40, 40, 40, 255]},
                         "outlineWidth": 2,
                         "shadows": "ENABLED"
@@ -230,15 +231,16 @@ def export_bar_czml(
                         continue
                     
                     height = value * options.bar_height_multiplier
-                    r, g, b, a = colourmap_interpret(
+                    r, g, b, _ = colourmap_interpret(
                         vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
                     )
-                    
+                    alpha = int(options.polygon_fill_opacity * 255)
+
                     entity_id = f"{selection.title.replace(' ', '_')}_{poly_name.replace(' ', '_')}_bar_{period_idx}"
                     availability = f"{stat.time_range.start.isoformat()}/{stat.time_range.end.isoformat()}"
                     time_start = stat.time_range.start.strftime('%Y-%m-%d')
                     time_end = stat.time_range.end.strftime('%Y-%m-%d')
-                    
+
                     packet = {
                         "id": entity_id,
                         "name": build_entity_name(poly_name, time_start=time_start, time_end=time_end),
@@ -248,8 +250,8 @@ def export_bar_czml(
                             "length": height,
                             "topRadius": bar_radius,
                             "bottomRadius": bar_radius * 1.2,
-                            "material": {"solidColor": {"color": {"rgba": [r, g, b, a]}}},
-                            "outline": True,
+                            "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
+                            "outline": options.polygon_outline,
                             "outlineColor": {"rgba": [40, 40, 40, 255]},
                             "outlineWidth": 2,
                             "shadows": "ENABLED"
@@ -274,10 +276,11 @@ def export_bar_czml(
             
             if value is not None:
                 height = value * options.bar_height_multiplier
-                r, g, b, a = colourmap_interpret(
+                r, g, b, _ = colourmap_interpret(
                     vmin=vmin, vmax=vmax, value=value, colourmap=options.colourmap_name
                 )
-                
+                alpha = int(options.polygon_fill_opacity * 255)
+
                 packet = {
                     "id": entity_id,
                     "name": build_entity_name(poly_name),
@@ -286,8 +289,8 @@ def export_bar_czml(
                         "length": height,
                         "topRadius": bar_radius,
                         "bottomRadius": bar_radius * 1.2,
-                        "material": {"solidColor": {"color": {"rgba": [r, g, b, a]}}},
-                        "outline": True,
+                        "material": {"solidColor": {"color": {"rgba": [r, g, b, alpha]}}},
+                        "outline": options.polygon_outline,
                         "outlineColor": {"rgba": [40, 40, 40, 255]},
                         "outlineWidth": 2,
                         "shadows": "ENABLED"
