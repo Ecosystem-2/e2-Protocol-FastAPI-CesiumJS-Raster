@@ -11,7 +11,11 @@ from app.climate_indices.czml_description import (
     build_period_stats,
     build_polygon_title,
 )
-from app.climate_indices.czml_time import period_midpoint_iso, period_midpoint_isos
+from app.climate_indices.czml_time import (
+    period_full_range_iso,
+    period_midpoint_iso,
+    period_midpoint_isos,
+)
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
 
@@ -46,7 +50,9 @@ def _build_sampled_circle_colour(
     return {
         "rgba": samples,
         "interpolationAlgorithm": "LINEAR",
-        "interpolationDegree": 1
+        "interpolationDegree": 1,
+        "forwardExtrapolationType": "HOLD",
+        "backwardExtrapolationType": "HOLD"
     }
 
 
@@ -157,9 +163,13 @@ def export_circle_czml(
                     options=options,
                     colour=sampled_colour,
                 )
-                midpoint_times = period_midpoint_isos(stats_list)
-                if midpoint_times:
-                    packet["availability"] = f"{midpoint_times[0]}/{midpoint_times[-1]}"
+                full_range = period_full_range_iso(stats_list)
+                if full_range:
+                    packet["availability"] = f"{full_range[0]}/{full_range[1]}"
+                else:
+                    midpoint_times = period_midpoint_isos(stats_list)
+                    if midpoint_times:
+                        packet["availability"] = f"{midpoint_times[0]}/{midpoint_times[-1]}"
                 packet["description"] = build_description_html(
                     index_type=index_type,
                     stat=first_stat,

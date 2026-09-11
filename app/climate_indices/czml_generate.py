@@ -11,7 +11,7 @@ from app.climate_indices.models import PolygonSelectionRecord, CZMLExportOptions
 from app.climate_indices.czml_bar import export_bar_czml
 from app.climate_indices.czml_circle import export_circle_czml
 from app.climate_indices.czml_polygon import export_polygon_czml
-from app.climate_indices.czml_time import period_midpoint_isos
+from app.climate_indices.czml_time import period_full_range_iso, period_midpoint_isos
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -119,9 +119,13 @@ class CZMLExportService:
             midpoint_times = period_midpoint_isos(all_stats)
 
             if options.interpolation_mode == "interpolation" and midpoint_times:
+                # Samples live at period midpoints, but the clock should span the
+                # real data coverage (e.g. 1981-2100), not just midpoint-to-midpoint.
+                full_range = period_full_range_iso(all_stats)
+                interval_start, interval_end = full_range if full_range else (midpoint_times[0], midpoint_times[-1])
                 doc_packet["clock"] = {
-                    "interval": f"{midpoint_times[0]}/{midpoint_times[-1]}",
-                    "currentTime": midpoint_times[0],
+                    "interval": f"{interval_start}/{interval_end}",
+                    "currentTime": interval_start,
                     "multiplier": 31536000,  # 1 year per second
                     "range": "LOOP_STOP",
                     "step": "SYSTEM_CLOCK_MULTIPLIER"

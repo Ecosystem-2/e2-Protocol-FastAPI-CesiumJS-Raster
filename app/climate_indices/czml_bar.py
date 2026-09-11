@@ -13,7 +13,11 @@ from app.climate_indices.czml_description import (
     build_period_stats,
     build_polygon_title,
 )
-from app.climate_indices.czml_time import period_midpoint_iso, period_midpoint_isos
+from app.climate_indices.czml_time import (
+    period_full_range_iso,
+    period_midpoint_iso,
+    period_midpoint_isos,
+)
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
 
@@ -42,11 +46,13 @@ def _build_sampled_bar_height(stats_group: list, options: CZMLExportOptions) -> 
     
     if not samples:
         return {"number": 0}
-    
+
     return {
         "number": samples,
         "interpolationAlgorithm": "LINEAR",
-        "interpolationDegree": 1
+        "interpolationDegree": 1,
+        "forwardExtrapolationType": "HOLD",
+        "backwardExtrapolationType": "HOLD"
     }
 
 
@@ -78,11 +84,13 @@ def _build_sampled_bar_colour(
 
     if not samples:
         return {"rgba": [128, 128, 128, alpha]}
-    
+
     return {
         "rgba": samples,
         "interpolationAlgorithm": "LINEAR",
-        "interpolationDegree": 1
+        "interpolationDegree": 1,
+        "forwardExtrapolationType": "HOLD",
+        "backwardExtrapolationType": "HOLD"
     }
 
 
@@ -116,7 +124,9 @@ def _build_sampled_bar_position(
     return {
         "cartographicDegrees": samples,
         "interpolationAlgorithm": "LINEAR",
-        "interpolationDegree": 1
+        "interpolationDegree": 1,
+        "forwardExtrapolationType": "HOLD",
+        "backwardExtrapolationType": "HOLD"
     }
 
 
@@ -189,8 +199,12 @@ def export_bar_czml(
                 sampled_colour = _build_sampled_bar_colour(stats_list, options, vmin, vmax)
                 sampled_position = _build_sampled_bar_position(stats_list, options, lon, lat)
                 
-                midpoint_times = period_midpoint_isos(stats_list)
-                availability = f"{midpoint_times[0]}/{midpoint_times[-1]}" if midpoint_times else None
+                full_range = period_full_range_iso(stats_list)
+                if full_range:
+                    availability = f"{full_range[0]}/{full_range[1]}"
+                else:
+                    midpoint_times = period_midpoint_isos(stats_list)
+                    availability = f"{midpoint_times[0]}/{midpoint_times[-1]}" if midpoint_times else None
                 
                 first_stat = stats_list[0]
                 first_height = getattr(first_stat, options.value_field, 0) * options.bar_height_multiplier

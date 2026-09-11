@@ -12,7 +12,11 @@ from app.climate_indices.czml_description import (
     build_period_stats,
     build_polygon_title,
 )
-from app.climate_indices.czml_time import period_midpoint_iso, period_midpoint_isos
+from app.climate_indices.czml_time import (
+    period_full_range_iso,
+    period_midpoint_iso,
+    period_midpoint_isos,
+)
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
 
@@ -84,11 +88,13 @@ def _build_sampled_height(stats_group: list, options: CZMLExportOptions) -> dict
     
     if not samples:
         return {"number": 0}
-    
+
     return {
         "number": samples,
         "interpolationAlgorithm": "LINEAR",
-        "interpolationDegree": 1
+        "interpolationDegree": 1,
+        "forwardExtrapolationType": "HOLD",
+        "backwardExtrapolationType": "HOLD"
     }
 
 
@@ -122,11 +128,13 @@ def _build_sampled_colour(
     
     if not samples:
         return {"rgba": [128, 128, 128, alpha]}
-    
+
     return {
         "rgba": samples,
         "interpolationAlgorithm": "LINEAR",
-        "interpolationDegree": 1
+        "interpolationDegree": 1,
+        "forwardExtrapolationType": "HOLD",
+        "backwardExtrapolationType": "HOLD"
     }
 
 
@@ -154,12 +162,18 @@ def _build_interpolated_polygon_packet(
     sampled_height = None if is_flat else _build_sampled_height(stats_group, options)
     sampled_colour = _build_sampled_colour(stats_group, options, vmin, vmax)
     
-    # In interpolation mode, make the entity available across the representative
-    # midpoint range. This keeps the clock aligned with sampled values.
-    midpoint_times = period_midpoint_isos(stats_group)
+    # Availability should span the real data coverage (e.g. 1981-2100), not just
+    # midpoint-to-midpoint between sampled periods (which clips ~half a period
+    # off each end). Sampled properties hold their boundary value outside the
+    # sample range (see forward/backwardExtrapolationType above).
     availability = None
-    if midpoint_times:
-        availability = f"{midpoint_times[0]}/{midpoint_times[-1]}"
+    full_range = period_full_range_iso(stats_group)
+    if full_range:
+        availability = f"{full_range[0]}/{full_range[1]}"
+    else:
+        midpoint_times = period_midpoint_isos(stats_group)
+        if midpoint_times:
+            availability = f"{midpoint_times[0]}/{midpoint_times[-1]}"
     
     polygon: dict[str, Any] = {
         "positions": {
