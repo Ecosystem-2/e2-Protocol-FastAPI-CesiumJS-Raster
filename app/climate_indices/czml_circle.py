@@ -13,8 +13,8 @@ from app.climate_indices.czml_description import (
 )
 from app.climate_indices.czml_time import (
     period_full_range_iso,
-    period_midpoint_iso,
     period_midpoint_isos,
+    period_sample_times,
 )
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
@@ -28,13 +28,15 @@ def _build_sampled_circle_colour(
     vmin: float,
     vmax: float
 ) -> dict[str, Any]:
-    """Build a sampled colour property for circle interpolation mode."""
+    """
+    Build a sampled colour property for circle interpolation mode.
+
+    Interior periods sample at their midpoint; the first and last periods
+    sample at their actual start/end so the ramp covers the full data range.
+    """
     samples = []
     alpha = int(options.polygon_fill_opacity * 255)
-    for stat in stats_group:
-        sample_time = period_midpoint_iso(stat)
-        if not sample_time:
-            continue
+    for stat, sample_time in period_sample_times(stats_group):
         value = getattr(stat, options.value_field)
         if value is None:
             continue
