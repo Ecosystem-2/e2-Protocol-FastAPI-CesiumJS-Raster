@@ -25,6 +25,31 @@ def period_midpoint_isos(stats: list[Any]) -> list[str]:
     return sorted(midpoints)
 
 
+def period_sample_times(stats: list[Any]) -> list[tuple[Any, str]]:
+    """Pair each stat with the ISO timestamp to sample it at for interpolation.
+
+    The first and last periods (ordered by time_range.start) are sampled at
+    their actual start/end bounds rather than their midpoint, so the
+    interpolated value ramps across the full period instead of holding flat
+    between the data's true edge and the first/last period's midpoint.
+    Interior periods still sample at their midpoint, representing the centre
+    of that climatological normal. Stats without a usable start are skipped.
+    """
+    usable = [stat for stat in stats if stat.time_range and stat.time_range.start]
+    n = len(usable)
+    pairs: list[tuple[Any, str]] = []
+    for i, stat in enumerate(usable):
+        if n > 1 and i == 0:
+            sample_time: str | None = stat.time_range.start.isoformat()
+        elif n > 1 and i == n - 1 and stat.time_range.end:
+            sample_time = stat.time_range.end.isoformat()
+        else:
+            sample_time = period_midpoint_iso(stat)
+        if sample_time:
+            pairs.append((stat, sample_time))
+    return pairs
+
+
 def period_full_range_iso(stats: list[Any]) -> tuple[str, str] | None:
     """Return the (start, end) ISO timestamps spanning every stat's actual time range.
 
