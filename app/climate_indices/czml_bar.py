@@ -15,8 +15,8 @@ from app.climate_indices.czml_description import (
 )
 from app.climate_indices.czml_time import (
     period_full_range_iso,
-    period_midpoint_iso,
     period_midpoint_isos,
+    period_sample_times,
 )
 from app.commons.colours import colourmap_interpret
 from app.core.logging import get_logger
@@ -28,19 +28,16 @@ def _build_sampled_bar_height(stats_group: list, options: CZMLExportOptions) -> 
     """
     Build a sampled cylinder length property for interpolation mode.
     
-    Adds one sample at each period midpoint, so values represent the centre of
-    each climatological period and interpolate smoothly between representative
-    periods.
+    Interior periods sample at their midpoint; the first and last periods
+    sample at their actual start/end so the ramp covers the full data range
+    instead of plateauing between the true edge and the outermost midpoint.
     """
     samples = []
-    for stat in stats_group:
-        sample_time = period_midpoint_iso(stat)
-        if not sample_time:
-            continue
+    for stat, sample_time in period_sample_times(stats_group):
         value = getattr(stat, options.value_field)
         if value is None:
             continue
-        
+
         height = value * options.bar_height_multiplier
         samples.extend([sample_time, height])
     
@@ -65,14 +62,12 @@ def _build_sampled_bar_colour(
     """
     Build a sampled colour property for bar interpolation mode.
 
-    Adds one sample at each period midpoint, matching sampled height.
+    Sample times match _build_sampled_bar_height (midpoints, with the
+    first/last period pinned to its actual start/end).
     """
     samples = []
     alpha = int(options.polygon_fill_opacity * 255)
-    for stat in stats_group:
-        sample_time = period_midpoint_iso(stat)
-        if not sample_time:
-            continue
+    for stat, sample_time in period_sample_times(stats_group):
         value = getattr(stat, options.value_field)
         if value is None:
             continue
@@ -105,12 +100,12 @@ def _build_sampled_bar_position(
     stays at height/2 as the animated length changes.
 
     Format: [iso, lon, lat, z, iso, lon, lat, z, ...]
+
+    Sample times match _build_sampled_bar_height (midpoints, with the
+    first/last period pinned to its actual start/end).
     """
     samples = []
-    for stat in stats_group:
-        sample_time = period_midpoint_iso(stat)
-        if not sample_time:
-            continue
+    for stat, sample_time in period_sample_times(stats_group):
         value = getattr(stat, options.value_field)
         if value is None:
             continue
