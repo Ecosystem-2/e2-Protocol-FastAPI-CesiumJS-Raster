@@ -180,7 +180,28 @@ grep GOOGLE_APPLICATION_CREDENTIALS .env
    python -c "import json; json.load(open('./data/gcs_credentials.json'))"
    ```
 
-For more details, see [GCS Credentials Setup Guide](setup-gcs-credentials.md).
+### Bucket Not Found
+
+**Error**: `404 Not Found` or `The specified bucket does not exist`
+
+**Cause**: The bucket does not exist, or `GCS_BUCKET` does not match its name exactly.
+
+**Solution**:
+```bash
+# List every bucket the service account can see
+gcloud storage buckets list
+
+# Compare against what the app is configured to use
+grep GCS_BUCKET .env
+```
+
+If the bucket genuinely does not exist, create it:
+```bash
+gcloud storage buckets create gs://your-bucket-name --location=us-central1
+```
+
+For provisioning a service account and bucket from scratch, see
+[GCS credentials](gcs-credentials.md).
 
 ---
 
@@ -250,11 +271,42 @@ is cleared.
 docker compose restart
 ```
 
-**Permanent fix**: Ensure the deployed code includes the `_clear_gdal_vsi_cache()` fix in
-`blob_storage.py` (removes early return so rasterio's bundled libgdal is also cleared).
+**Permanent fix**: Ensure the deployed code includes the `_clear_gdal_vsi_cache()` call in
+`blob_storage.py`. Rasterio ships its own bundled libgdal alongside any system GDAL, so both
+must be cleared — an early return that stops after the first one leaves the cache intact.
 
-For full investigation details and the two-instance root cause, see
-[gdal-vsi-cache.md](gdal-vsi-cache.md).
+**If it comes back after that fix is deployed**, check the logs for:
+
+```text
+Could not clear GDAL VSI cache: no suitable GDAL library found
+```
+
+That means neither library was loadable. Usually one of:
+
+- rasterio was installed without a bundled GDAL *and* the system GDAL shared-object name
+  changed — for example a major bump from `libgdal.so.34` to `libgdal.so.35`
+- a non-standard rasterio build that embeds GDAL under a different name
+
+Do **not** reach for `CPL_VSIL_CURL_CACHE_SIZE=0` as a fallback. GDAL 3.10.x rejects that value
+and silently falls back to its minimum cache size, so the cache is still there. Use these
+runtime options instead, which avoid stale directory and sibling-file state around `/vsigs/`
+opens:
+
+```yaml
+environment:
+  GDAL_DISABLE_READDIR_ON_OPEN: "EMPTY_DIR"
+  VSI_CACHE: "FALSE"
+  GDAL_VERIFY_AFTER_UPLOAD: "true"
+  GDAL_TILE_DIAGNOSTICS: "true"
+```
+
+`GDAL_VERIFY_AFTER_UPLOAD=true` makes the API open each uploaded object through rasterio after
+upload. It is both a correctness check and a deliberate warm-up of the exact `/vsigs/...` path
+the tile endpoint will later read.
+
+`GDAL_TILE_DIAGNOSTICS=true` adds per-tile diagnostics including a GCS metadata probe before
+`COGReader` opens the raster. Useful while diagnosing; turn it off for normal high-volume tile
+serving.
 
 ---
 
@@ -291,30 +343,33 @@ For full investigation details and the two-instance root cause, see
 
 ### Polygon Query Returns Empty Results
 
-**Problem**: `/query/polygon` returns zero statistics
+**Problem**: `/query/polygons/stats` returns statistics with `count: 0`
+
+A `count` of zero means no valid pixels fell inside the polygon. Either the polygon misses the
+raster, or it covers only nodata.
 
 **Debugging Steps**:
 
 1. **Verify polygon is valid GeoJSON**
    ```bash
-   # Validate GeoJSON
    echo '{"type":"Polygon","coordinates":[...]}' | jq .
    ```
 
 2. **Check polygon overlaps raster bounds**
-   - Get asset bounds from `/assets/{asset_id}`
-   - Ensure polygon intersects with bounds
+   - Get the bounds from `rasterSummary.bounds` via `/assets/{id}`
+   - Confirm the polygon actually intersects them. Longitude/latitude transposition is the
+     usual culprit — GeoJSON is `[lon, lat]`
 
 3. **Verify request format**
-   - Must use `FormData`, not JSON
-   - `asset_id`: string
-   - `polygon_geojson`: stringified GeoJSON
+   - Must be `FormData`, not JSON
+   - `assetIds`: comma-separated string
+   - `polygonsGeojson`: a stringified **array** of Polygon objects, not a single object
 
-4. **Test with known polygon**
+4. **Test with a known polygon**
    ```bash
-   curl -X POST "http://127.0.0.1:8080/api/climate-indices/query/polygon" \
-     -F "asset_id=YOUR_ASSET_ID" \
-     -F 'polygon_geojson={"type":"Polygon","coordinates":[[[116.0,4.0],[117.0,4.0],[117.0,5.0],[116.0,5.0],[116.0,4.0]]]}'
+   curl -X POST "http://127.0.0.1:8080/api/climate-indices/query/polygons/stats" \
+     -F "assetIds=YOUR_ASSET_ID" \
+     -F 'polygonsGeojson=[{"type":"Polygon","coordinates":[[[116.0,4.0],[117.0,4.0],[117.0,5.0],[116.0,5.0],[116.0,4.0]]]}]'
    ```
 
 ### Form Data vs JSON Issues
@@ -322,15 +377,16 @@ For full investigation details and the two-instance root cause, see
 **Error**: `422 Unprocessable Entity` or `Field required`
 
 **Solution**:
-- Endpoints like `/ingest` and `/query/polygon` expect `FormData`, not JSON
-- Use `multipart/form-data` content type
+- Endpoints like `/ingest` and `/query/polygons/*` expect `FormData`, not JSON
+- Use `multipart/form-data`, and do not set `Content-Type` yourself — the browser must set the
+  multipart boundary
 - In JavaScript:
   ```javascript
   const formData = new FormData();
-  formData.append('asset_id', assetId);
-  formData.append('polygon_geojson', JSON.stringify(polygon));
-  
-  fetch('/api/climate-indices/query/polygon', {
+  formData.append('assetIds', assetId);
+  formData.append('polygonsGeojson', JSON.stringify([polygon]));
+
+  fetch('/api/climate-indices/query/polygons/stats', {
     method: 'POST',
     body: formData  // Not JSON.stringify()
   });
@@ -358,9 +414,9 @@ If you can't resolve an issue:
    ```
 
 2. **Review documentation**
-   - [Development Setup](dev_instruction.md)
-   - [GCS Credentials](setup-gcs-credentials.md)
-   - [Architecture Overview](../.github/copilot-instructions.md)
+   - [Getting started](getting-started.md)
+   - [GCS credentials](gcs-credentials.md)
+   - [Architecture](architecture.md)
 
 3. **Search existing issues**
    - Check GitHub issues for similar problems

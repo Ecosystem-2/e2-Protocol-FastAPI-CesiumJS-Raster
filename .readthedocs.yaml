@@ -1,0 +1,20 @@
+# Read the Docs build configuration.
+# Reference: https://docs.readthedocs.io/en/stable/config-file/v2.html
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.13"
+
+mkdocs:
+  configuration: mkdocs.yml
+  # mkdocs.yml already sets strict: true, so a broken link fails the build here too.
+  fail_on_warning: false
+
+python:
+  install:
+    - requirements: docs/requirements.txt
+
+formats:
+  - pdf

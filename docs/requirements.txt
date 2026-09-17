@@ -1,0 +1,7 @@
+# Documentation build only.
+#
+# Deliberately separate from pyproject.toml: building the docs must not pull in GDAL,
+# rasterio or the rest of the geospatial stack. Read the Docs installs only this file.
+mkdocs==1.6.1
+mkdocs-material==9.5.49
+pymdown-extensions==10.14
