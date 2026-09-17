@@ -186,54 +186,11 @@ Regularly check the service account activity:
 3. View the **Permissions** and **Keys** tabs
 4. Check **Audit Logs** for unusual activity
 
-## Troubleshooting
+## When it does not work
 
-### Error: "Could not automatically determine credentials"
-
-**Cause**: Environment variable not set or file path is incorrect
-
-**Solution**:
-```bash
-# Verify the environment variable is set
-echo $GOOGLE_APPLICATION_CREDENTIALS
-
-# Check file exists and is readable
-cat ./data/gcs_credentials.json | jq .
-
-# Ensure the path in .env is correct (absolute or relative to project root)
-```
-
-### Error: "Permission denied" when accessing bucket
-
-**Cause**: Service account lacks proper permissions
-
-**Solution**:
-1. Go to **Cloud Storage** → **Buckets** → Your Bucket
-2. Click **Permissions** tab
-3. Add the service account email with **Storage Object Admin** role
-4. Or update IAM policy at project level
-
-### Error: "Invalid JSON" when loading credentials
-
-**Cause**: Corrupted or incomplete credentials file
-
-**Solution**:
-1. Validate JSON syntax: `cat ./data/gcs_credentials.json | jq .`
-2. If invalid, re-download the key from Google Cloud Console
-3. Ensure no extra characters were added during copy/paste
-
-### Bucket not found
-
-**Cause**: Bucket doesn't exist or name is incorrect
-
-**Solution**:
-```bash
-# List all buckets you have access to
-gcloud storage buckets list
-
-# Verify bucket name in .env matches exactly
-grep GCS_BUCKET .env
-```
+Credential and bucket errors — "Could not automatically determine credentials", `403
+Permission denied`, invalid JSON, bucket not found — are covered in
+[Troubleshooting](troubleshooting.md#google-cloud-storage-issues).
 
 ## Additional Resources
 

@@ -1,0 +1,103 @@
+site_name: HOB FastAPI
+site_description: >-
+  Climate-data microservice for the Heart of Borneo project. Ingests GeoTIFF climate-index
+  rasters and serves them as map tiles, zonal statistics and CZML documents for CesiumJS.
+site_author: Ecosystem2
+
+# Confirm this matches the project slug once the Read the Docs project is created.
+site_url: https://hob-fastapi.readthedocs.io/
+
+repo_url: https://github.com/ORG/REPO
+repo_name: ORG/REPO
+edit_uri: edit/development/docs/
+
+docs_dir: docs
+
+# Files under docs/ that must NOT be published.
+# MkDocs builds every .md it finds, not just what is in the nav, so anything left out of the
+# nav still ships unless it is listed here.
+# REVIEW-*.md is a standing guard, not a reference to one file: internal review drafts get
+# dropped into docs/ and must never reach the public site.
+exclude_docs: |
+  REVIEW-*.md
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.footer
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Architecture: architecture.md
+  - Data model: schema.md
+  - Deployment: deployment.md
+  - GCS credentials: gcs-credentials.md
+  - Troubleshooting: troubleshooting.md
+  - Testing: testing.md
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ORG/REPO
+    - icon: fontawesome/solid/globe
+      link: https://ecosystem2.co.uk
+
+# Fail the build on a broken internal link or a page missing from the nav, rather than
+# publishing a site with dead links.
+strict: true
+validation:
+  omitted_files: warn
+  absolute_links: warn
+  unrecognized_links: warn
+  anchors: warn
