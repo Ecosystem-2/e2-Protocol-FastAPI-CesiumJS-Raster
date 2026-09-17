@@ -51,6 +51,8 @@ jobs:
           context: .
           file: ./app/demo/Dockerfile
           push: true
+          no-cache: true
+          pull: true
           platforms: linux/amd64 #,linux/arm64,linux/arm
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
