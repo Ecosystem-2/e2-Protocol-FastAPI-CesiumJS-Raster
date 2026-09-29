@@ -50,5 +50,5 @@ credentials. MongoDB and GCS are external dependencies; there is no local-only m
 
 ## Licence
 
-Released under the GNU Affero General Public License v3.0. See `LICENSE` in the repository
-root.
+Released under the GNU Affero General Public License v3.0. See `LICENSE.md` in the
+repository root.

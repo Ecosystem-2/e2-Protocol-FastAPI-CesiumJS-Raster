@@ -3,6 +3,7 @@ site_description: >-
   Climate-data microservice for the Heart of Borneo project. Ingests GeoTIFF climate-index
   rasters and serves them as map tiles, zonal statistics and CZML documents for CesiumJS.
 site_author: Ecosystem2
+copyright: Copyright &copy; 2026 Ecosystem2 Ltd. Licensed under the GNU AGPL v3.0.
 
 # Confirm this matches the project slug once the Read the Docs project is created.
 site_url: https://hob-fastapi.readthedocs.io/
