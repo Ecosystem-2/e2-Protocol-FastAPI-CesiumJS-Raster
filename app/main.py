@@ -48,7 +48,7 @@ def create_app() -> FastAPI:
     @app.get("/")
     def root():
         return {
-            "service": "hob-fastapi",
+            "service": "e2-visengine-service",
             "routers": ["geotif_converter", "climate_indices"]
             + ([] if service_token.enabled() else ["demo"]),
             "auth": "service-token" if service_token.enabled() else "open",
