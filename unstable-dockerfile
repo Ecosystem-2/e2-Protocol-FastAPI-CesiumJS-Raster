@@ -57,6 +57,9 @@ COPY --from=builder --chown=appuser:appuser /app/.venv /app/.venv
 COPY --chown=appuser:appuser app ./app
 COPY --chown=appuser:appuser pyproject.toml ./
 
+# AGPL section 5 wants the licence kept with the code we distribute
+COPY --chown=appuser:appuser LICENSE.md AUTHORS.md ./
+
 # Create data directory for GCS credentials
 RUN mkdir -p /app/data && chown appuser:appuser /app/data
 

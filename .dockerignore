@@ -42,6 +42,11 @@ docs/
 README.md
 LICENSE
 
+# The AGPL travels with the code, so the image has to carry the licence text
+# and the copyright assertion. These negations must stay below *.md above.
+!LICENSE.md
+!AUTHORS.md
+
 # Tests
 tests/
 *.test.py
