@@ -9,6 +9,7 @@ from typing import Tuple
 
 from fastapi import FastAPI
 
+from app.core import source_offer
 from app.db.mongo import (
     get_async_client,
     close_async_client,
@@ -42,6 +43,8 @@ def _log_runtime_settings() -> None:
     _setting("GCS prefix", os.getenv("GCS_PREFIX", "uploads"))
     _setting("Demo API", os.getenv("DEMO_API_BASE") or "(unset)")
     _setting("Cesium token", "set" if os.getenv("CESIUM_ION_TOKEN") else "(unset)")
+    _setting("Source offer", source_offer.source_url() or "(unset)")
+    _setting("Revision", source_offer.revision() or "(unset)")
     _rule()
 
 

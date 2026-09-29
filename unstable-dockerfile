@@ -60,6 +60,11 @@ COPY --chown=appuser:appuser pyproject.toml ./
 # AGPL section 5 wants the licence kept with the code we distribute
 COPY --chown=appuser:appuser LICENSE.md AUTHORS.md ./
 
+# Section 13 offers users the source of the version actually running, so the build
+# has to record which commit that was. Pass --build-arg SOURCE_REVISION=$GITHUB_SHA.
+ARG SOURCE_REVISION=""
+ENV SOURCE_REVISION=${SOURCE_REVISION}
+
 # Create data directory for GCS credentials
 RUN mkdir -p /app/data && chown appuser:appuser /app/data
 

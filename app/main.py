@@ -2,13 +2,14 @@
 # SPDX-FileCopyrightText: 2025-2026 Yang Zhang
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from app.core.middleware import add_middlewares
 from app.core.lifespan import lifespan
 from app.core.logging import configure_logging
 from app.api.router import api_router, tags_metadata
-from app.core import service_token
+from app.core import service_token, source_offer
 from dotenv import load_dotenv
 import logging
 import os
@@ -29,6 +30,15 @@ def create_app() -> FastAPI:
         logging.getLogger(__name__).warning(
             "Service tokens not configured — climate endpoints are open to anyone "
             "who can reach this process"
+        )
+
+    # Starting without it is allowed, since a missing URL shouldn't take the service
+    # down, but a network deployment that can't tell users where the source is isn't
+    # meeting section 13.
+    if source_offer.source_url() is None:
+        logging.getLogger(__name__).warning(
+            "SOURCE_URL not set — /source cannot tell users where to get the code, "
+            "which leaves any network-facing deployment short of AGPL section 13"
         )
 
     app = FastAPI(
@@ -57,8 +67,27 @@ def create_app() -> FastAPI:
             + ([] if service_token.enabled() else ["demo"]),
             "auth": "service-token" if service_token.enabled() else "open",
             "docs": "/docs",
+            "source": "/source",
             **({} if service_token.enabled() else {"demo": "/demo/"}),
         }
+
+    # Section 13 obliges us to offer the source to everyone interacting with this
+    # service over a network, so neither route sits behind the service token.
+    @app.get("/source", tags=["licence"])
+    def source():
+        """Where to get the Corresponding Source for the version running here."""
+        return source_offer.offer()
+
+    @app.get("/licence", tags=["licence"], response_class=PlainTextResponse)
+    def licence():
+        """The full licence text, so the notice resolves without leaving the service."""
+        text = source_offer.licence_text()
+        if text is None:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Licence text missing from this deployment. See {source_offer.source_url()}",
+            )
+        return text
 
     return app
 
