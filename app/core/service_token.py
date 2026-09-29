@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ecosystem2 Ltd
+# SPDX-FileCopyrightText: 2025-2026 Yang Zhang
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Signed service-to-service tokens (Ed25519).
 
 Python counterpart to Insight-Express.TS-1/src/middleware/serviceToken.ts.

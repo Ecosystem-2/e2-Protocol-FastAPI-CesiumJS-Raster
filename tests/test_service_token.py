@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ecosystem2 Ltd
+# SPDX-FileCopyrightText: 2025-2026 Yang Zhang
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """Cross-language golden vector for the Ed25519 service-token scheme.
 
 The token below was minted by Node (jose) in Insight-Express.TS-1 and is

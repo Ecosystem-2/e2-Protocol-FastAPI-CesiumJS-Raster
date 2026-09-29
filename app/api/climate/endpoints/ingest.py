@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2025-2026 Ecosystem2 Ltd
+# SPDX-FileCopyrightText: 2025-2026 Yang Zhang
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
 """GeoTIFF ingestion endpoints: validate, upload, and persist climate index assets."""
 
 from __future__ import annotations
