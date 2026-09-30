@@ -45,6 +45,9 @@ def configured(monkeypatch):
     _config() is lru_cached, so the cache is cleared rather than the module
     reimported — reimporting would leave two copies of the cache alive.
     """
+    # Stays hob-fastapi while the service is called e2-visengine-service: the golden
+    # token's `aud` sits inside the signature, so the fixture has to address this
+    # service by the name Express used when it minted the vector.
     monkeypatch.setenv("SERVICE_NAME", "hob-fastapi")
     monkeypatch.setenv("SERVICE_TOKEN_KID", "hob-fastapi-testvector")
     monkeypatch.setenv("SERVICE_TOKEN_PRIVATE_KEY", "unused-for-verification")
