@@ -153,6 +153,8 @@ Beyond those: uploads are validated for content type and size, MongoDB connectio
 | `DEMO_API_BASE` | For remote hosts | Public API URL, used by the browser |
 | `CESIUM_ION_TOKEN` | For the demo globe | Cesium Ion access token |
 | `LOG_LEVEL` | No | Defaults to `INFO` |
+| `SOURCE_URL` | Yes, if network-facing | Where users can get the Corresponding Source. AGPL section 13 is unmet without it |
+| `SOURCE_REVISION` | No | The commit the image was built from. Baked in by CI, not set by hand |
 | `GDAL_DISABLE_READDIR_ON_OPEN` | Recommended | Set to `EMPTY_DIR`; see below |
 | `VSI_CACHE` | Recommended | Set to `FALSE`; see below |
 

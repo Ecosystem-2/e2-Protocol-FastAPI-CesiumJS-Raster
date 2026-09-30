@@ -38,6 +38,15 @@ services:
       # Demo frontend configuration
       DEMO_API_BASE: ${DEMO_API_BASE:-http://localhost:8080/api/climate-indices}
       CESIUM_ION_TOKEN: ${CESIUM_ION_TOKEN:-}
+
+      # Source offer (AGPL section 13). This block is an allow-list, so anything not named
+      # here never reaches the container: without SOURCE_URL, /source cannot tell a user
+      # where the running code came from and the deployment does not meet section 13.
+      #
+      # SOURCE_REVISION is deliberately absent. The Dockerfile bakes it in at build time,
+      # and naming it here would set it to the empty string whenever the host has not
+      # exported one, overwriting the commit the image already knows.
+      SOURCE_URL: ${SOURCE_URL:-}
     volumes:
       # Mount GCS credentials (create this file first!)
       - ./data/gcs_credentials.json:/app/data/gcs_credentials.json:ro
