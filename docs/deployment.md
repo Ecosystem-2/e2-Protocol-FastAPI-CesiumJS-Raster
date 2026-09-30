@@ -183,6 +183,76 @@ covers the symptom in full.
 Feature work branches from `development`. Anything likely to be unstable should get its own
 branch and merge back when it settles. The workflows are in `.github/workflows/`.
 
+## Publishing images
+
+The workflows push to Docker Hub as `$DOCKER_USERNAME/<stage>-visengine-middleware`, where the
+stage comes from `REPO_STAGE` at the top of each workflow file. They authenticate with two
+repository secrets, `DOCKER_USERNAME` and `DOCKER_PASSWORD`. Both are already set on this
+repository, so the setup below is only needed on a fork or when a token is rotated.
+
+### Creating a Docker Hub access token
+
+Use an access token rather than your account password, since a token can be scoped and revoked
+on its own.
+
+1. Logged into Docker Hub, select the downward triangle next to your username at the far right.
+
+    ![Docker Hub navigation bar](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-NavBar.png?raw=true)
+
+2. In the dropdown, enter your **account settings**.
+
+    ![Docker Hub account dropdown](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-Dropdown.png?raw=true)
+
+3. In the left sidebar, select **Security**.
+
+    ![Docker Hub security settings](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-Security.png?raw=true)
+
+4. To the right of the Access Tokens heading, click the blue **New Access Token** button.
+
+    ![Docker Hub new access token button](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-AddToken.png?raw=true)
+
+5. Set the description and permissions. Read and Write is enough, since the workflows only push.
+
+    ![Docker Hub token permissions](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-NewToken.png?raw=true)
+
+6. Copy the token now. Docker Hub shows it once and will not show it again.
+
+    ![Docker Hub generated token](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-Token.png?raw=true)
+
+### Storing it as a repository secret
+
+1. In the navigation bar below the repository name, select **Settings**.
+
+    ![GitHub repository navigation bar](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Repo-Bar.png?raw=true)
+
+2. In the sidebar, select **Secrets and variables**.
+
+    ![GitHub repository settings sidebar](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_RepoSettings-Sidebar.png?raw=true)
+
+3. With the subsection expanded, select **Actions**.
+
+    ![GitHub Actions secrets](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Repo-Secrets.png?raw=true)
+
+4. There should already be two repository secrets, `DOCKER_USERNAME` and `DOCKER_PASSWORD`. Add
+   them if not. `DOCKER_PASSWORD` holds the access token, not the account password.
+
+    ![Existing Docker credentials](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Docker_Credentials.png?raw=true)
+
+5. To replace an existing value, select the pencil icon against that secret. GitHub will not
+   show you the current value, only let you overwrite it.
+
+### Cutting a production release
+
+Pushes to `testing` and `unstable` build automatically. Production does not: it waits for a
+published release, so nothing reaches the production tag by merging alone.
+
+1. In the left sidebar of the repository, select **Releases**, then **Draft a new release**.
+2. Type a [version number](https://semver.org/) into the tag field and choose "Create new tag
+   on publish".
+3. Set the target branch to `deployment`.
+4. Write the title and description, or select "Generate release notes".
+5. Press **Publish release**, then watch the build finish under Actions.
+
 ## Operating it
 
 ```bash

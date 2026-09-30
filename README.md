@@ -1,87 +1,92 @@
 <p align="center"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Full_Logo/e2_full_logo_navy.svg" /></p>
 
-This is part of the heart of borneo project, which uses a Fast API server to ingest climatology files and converts them into a file readable by cesium.
+# e2 Protocol: FastAPI + CesiumJS (Raster)
 
-This is a development microservice, please read the contributions section for instrustions on collaborating.
+Climate-data microservice for the Heart of Borneo project. It ingests GeoTIFF climate-index
+rasters, stores them in Google Cloud Storage and MongoDB, and serves them to a CesiumJS
+frontend as PNG map tiles, zonal statistics, and CZML 3D-visualisation documents.
 
-## Development Instructions
+This is the development microservice. Branch from `development`; see
+[Contributing](#contributing) before opening a pull request.
 
-Clone this repo, you should be within the development branch, and install [Python](https://www.python.org/downloads/).  
+## Quick start
 
-From the root directory of this repo, run:
+You need Python 3.13, [uv](https://docs.astral.sh/uv/), a MongoDB instance, and a GCS bucket
+with a service-account key. MongoDB and GCS are not optional: ingestion writes to object
+storage and metadata goes to MongoDB, so there is no local-only mode.
+
+```bash
+uv sync                          # create .venv from uv.lock
+cp .env.example .env             # then fill in MONGO_URI, GCS_BUCKET, CESIUM_ION_TOKEN
+uv run python -m app.main
 ```
-Pretend there are python specific commands here
+
+That serves on `http://localhost:8080`. Interactive API reference at `/docs`, the demo
+workflow at `/demo/`.
+
+With Docker instead:
+
+```bash
+docker compose up -d
 ```
 
-Typically hosted at `http://localhost:8000`, although this changes depending on the deployment method.
+[Getting started](docs/getting-started.md) covers the same ground properly, including the
+credentials file and what to do when a step fails.
 
-### Repository Structure
-- development contains the new graphical elements and functionality needed to facilitate the user journey, expect this branch to be ever changing
-- testing contains a more stable version of the development branch, this branch will be used to build and deploy UAT docker containers automatically.
-- deployment contains the latest feature set we feel is ready and stable enough to be shown publically, the creation of a release is required before a docker container will be built.
+## Documentation
 
-If a particular feature will be very unstable/experiemntal, the best course of action would be to create a separate branch and merge back into the development branch once done.
+The full docs are a MkDocs site built from `docs/`. To read them locally at
+`http://localhost:8000`:
 
-### Folder Structure
+```bash
+uv run --no-project --with-requirements docs/requirements.txt mkdocs serve
+```
 
-## Testing/Unstable Instructions
+The docs toolchain is pinned in `docs/requirements.txt` rather than `pyproject.toml`, so
+building the site does not drag in GDAL and the rest of the geospatial stack.
 
-In the future, a docker file and github workflow will be included within this repository. When a pull request is completed, the docker container is automatically built and submitted to [Dockerhub](https://hub.docker.com).
+| If you want to… | Read |
+|---|---|
+| Run it locally | [Getting started](docs/getting-started.md) |
+| Understand how it fits together | [Architecture](docs/architecture.md) |
+| Know what the API returns | [Data model](docs/schema.md), plus `/docs` on a running instance |
+| Deploy it, or publish an image | [Deployment](docs/deployment.md) |
+| Set up Google Cloud Storage | [GCS credentials](docs/gcs-credentials.md) |
+| Fix something broken | [Troubleshooting](docs/troubleshooting.md) |
+| Run or extend the tests | [Testing](docs/testing.md) |
 
-Once the changes made to the development branch are deemed stable enough for testing, a pull request can be made from the Testing branch (direct commits shall be blocked).
+There is no hand-written endpoint reference. The service generates its own from the running
+application at `/docs`, `/redoc` and `/openapi.json`, which is the only version that cannot
+drift from the code.
 
-Once the image is built, it is automatically deployed to our testing servers.
+## Branches
 
-## Production Instructions
+| Branch | Purpose | Image build |
+|---|---|---|
+| `development` | Active development, expect it to change under you | Manual |
+| `testing` | Stable enough for UAT | Automatic on push |
+| `deployment` | Production | Requires a published release |
 
-In the future, a docker file and github workflow will be included within this repository. When a release is created, the docker container is built and submitted to [Dockerhub](https://hub.docker.com).
+Anything very unstable or experimental is better off on its own branch, merged back into
+`development` once it settles. Direct commits to `testing` and `deployment` are blocked, so
+both are reached by pull request.
 
-It is assumed you already have accounts for [Dockerhub](https://hub.docker.com) and [Github](https://github.com), along with a [Docker](https://www.docker.com/get-started/) instance set up for the built container to run on. If any information is needed on how ecosystem2 handles hosting, please reach to us via our [website](https://ecosystem2.co.uk) or [email](mailto:hello@ecosystem2.co.uk).
+## Contributing
 
-### Setting up dockerhub access token
-- Once logged into Dockerhub, select the downward triangle next to your username on the far right of your screen.
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-NavBar.png?raw=true" /></p>
-- A dropdown should present itself, use this to **enter your account settings**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-Dropdown.png?raw=true" /></p>
-- On the sidebar to the left, **Select Security**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-Security.png?raw=true" /></p>
-- To the right of the Access Tokens heading, **Click on the blue New Access Token button**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-AddToken.png?raw=true" /></p>
-- A popup should now appear in the centre of the screen, **Set the appropriate description and permissions**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-NewToken.png?raw=true" /></p>
-- Your new token should now be created, **Copy the token**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Dockerhub-Token.png?raw=true" /></p>
+Pull requests are welcome. Contributions are accepted under the same licence as the project,
+AGPL-3.0-or-later, so there is no separate contributor agreement to sign: opening a pull
+request offers your work under that licence. If you are not the copyright holder of what you
+are contributing, say so in the pull request.
 
-### Setting up dockerhub credentials
-- Below the repository name, in the top left corner of the screen, there is a navigation bar; **Select Settings**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Repo-Bar.png?raw=true" /></p>
-- You should be presented with a page consisting with a sidbar and the repositories settings, **Select Secrets and variables**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_RepoSettings-Sidebar.png?raw=true" /></p>
-- With the sub-section expanded, **Select Actions**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Repo-Secrets.png?raw=true" /></p>
-- This section **should already have two repository secrets, DOCKER_USERNAME and DOCKER_PASSWORD**
-  <p align="left"><img src="https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Docker_Credentials.png?raw=true" /></p>
-- **If this is not the case, please add them**
-- Assuming both secrets are present, **Select the pencil icon to edit each secret**
+Dependencies are managed with `uv`, so use `uv add` rather than editing
+`pyproject.toml`, and never hand-edit `uv.lock`. Keep modules under 300 lines.
+[Architecture](docs/architecture.md) explains the conventions the code does not make obvious,
+such as the frontend-generated UUIDs that drive upserts.
 
-### Building docker container
-- On the left sidebar, **Select Releases**
-- **Select Draft New Release**
-- Type in a new [version number](https://semver.org/) into tag field and select "Create new tag on publish".
-- Set the target branch to production
-- Either type the title and descript manually or select "Generate release notes"
-- Press the green button that says "Publish release"
-- Wait for the build to complete
-
-#### Feel free to use the included docker-compose file, please note that it uses Traefik in order to create routes and assign SSL certificates. Although, any reverse proxy can be used or the container's ports exposed for direct access.
-
-## Contributions
-
-Pull requests are appreciated! Please use the same [Contributor License Agreement (CLA)](https://github.com/AnalyticalGraphicsInc/cesium/blob/master/CONTRIBUTING.md) and [Coding Guide](https://github.com/AnalyticalGraphicsInc/cesium/blob/master/Documentation/Contributors/CodingGuide/README.md) used for [Cesium](http://cesiumjs.org/).
-
-## References
+Contributors are recorded in [AUTHORS.md](AUTHORS.md).
 
 ## Licence
+
 Copyright (c) the respective contributors, as shown by the AUTHORS file.
 
 This program is free software: you can redistribute it and/or modify
@@ -96,3 +101,7 @@ GNU Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+Because it is AGPL, a deployment that users reach over a network owes them the source of what
+is actually running. The service answers that itself at `/source`, driven by `SOURCE_URL` and
+`SOURCE_REVISION`; see the notes in `.env.example`.
