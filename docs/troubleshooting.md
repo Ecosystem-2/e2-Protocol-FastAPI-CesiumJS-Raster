@@ -1,6 +1,6 @@
 # Troubleshooting Guide
 
-Common issues and solutions when developing with HOB FastAPI.
+Common issues and solutions when developing with e2 Protocol: FastAPI + CesiumJS (Raster).
 
 ## Table of Contents
 

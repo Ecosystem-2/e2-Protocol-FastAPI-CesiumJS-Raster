@@ -1,6 +1,6 @@
 # Google Cloud Storage Credentials Setup
 
-This guide explains how to generate and configure Google Cloud Storage service account credentials for the HOB FastAPI project.
+This guide explains how to generate and configure Google Cloud Storage service account credentials for this project.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ This guide explains how to generate and configure Google Cloud Storage service a
 1. In the left sidebar, go to **IAM & Admin** → **Service Accounts**
 2. Click **Create Service Account**
 3. Enter a name (e.g., `climate-tiles-service`)
-4. Optionally add a description (e.g., "Service account for HOB FastAPI climate tile storage")
+4. Optionally add a description (e.g., "Service account for e2 Protocol climate tile storage")
 5. Click **Create and Continue**
 
 ### 3. Grant Storage Permissions
@@ -55,7 +55,7 @@ After selecting the role:
 
 ```bash
 # Navigate to your project root
-cd HOB-FastAPI.Python
+cd e2-Protocol-FastAPI-CesiumJS-Raster
 
 # Create data directory if it doesn't exist
 mkdir -p data

@@ -17,8 +17,8 @@ object storage and metadata goes to MongoDB.
 ## 1. Clone and install
 
 ```bash
-git clone https://github.com/ORG/REPO.git
-cd HOB-FastAPI.Python
+git clone https://github.com/Ecosystem-2/e2-Protocol-FastAPI-CesiumJS-Raster.git
+cd e2-Protocol-FastAPI-CesiumJS-Raster
 ```
 
 Install uv if you do not have it:

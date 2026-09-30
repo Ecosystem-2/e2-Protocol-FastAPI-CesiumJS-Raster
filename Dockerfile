@@ -1,4 +1,4 @@
-# Multi-stage Dockerfile for HOB FastAPI Climate Tile Server
+# Multi-stage Dockerfile for e2 Protocol: FastAPI + CesiumJS (Raster), the climate tile server
 # Uses UV for fast dependency installation and smaller final image
 
 # ============================================================================

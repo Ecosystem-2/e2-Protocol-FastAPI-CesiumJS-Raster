@@ -42,7 +42,7 @@ def create_app() -> FastAPI:
         )
 
     app = FastAPI(
-        title="HOB FastAPI",
+        title="e2 Protocol: FastAPI + CesiumJS (Raster)",
         description="Data ingestion and conversion service for CesiumJS visualisation",
         version="1.0.0",
         lifespan=lifespan,

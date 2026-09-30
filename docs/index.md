@@ -1,4 +1,4 @@
-# HOB FastAPI
+# e2 Protocol: FastAPI + CesiumJS (Raster)
 
 A climate-data microservice for the Heart of Borneo project. It ingests GeoTIFF climate-index
 rasters, stores them in Google Cloud Storage and MongoDB, and serves them to a CesiumJS

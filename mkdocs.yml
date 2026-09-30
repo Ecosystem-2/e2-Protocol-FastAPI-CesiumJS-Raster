@@ -1,15 +1,16 @@
-site_name: HOB FastAPI
+site_name: "e2 Protocol: FastAPI + CesiumJS (Raster)"
 site_description: >-
   Climate-data microservice for the Heart of Borneo project. Ingests GeoTIFF climate-index
   rasters and serves them as map tiles, zonal statistics and CZML documents for CesiumJS.
 site_author: Ecosystem2
 copyright: Copyright &copy; 2026 Ecosystem2 Ltd. Licensed under the GNU AGPL v3.0.
 
-# Confirm this matches the project slug once the Read the Docs project is created.
-site_url: https://hob-fastapi.readthedocs.io/
+# Confirm this matches the project slug once the Read the Docs project is created. Read the
+# Docs derives the slug from the project name, so it will not follow the repository rename.
+site_url: https://e2-protocol-fastapi-cesiumjs-raster.readthedocs.io/
 
-repo_url: https://github.com/ORG/REPO
-repo_name: ORG/REPO
+repo_url: https://github.com/Ecosystem-2/e2-Protocol-FastAPI-CesiumJS-Raster
+repo_name: e2-Protocol-FastAPI-CesiumJS-Raster
 edit_uri: edit/development/docs/
 
 docs_dir: docs
@@ -90,7 +91,7 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/ORG/REPO
+      link: https://github.com/Ecosystem-2/e2-Protocol-FastAPI-CesiumJS-Raster
     - icon: fontawesome/solid/globe
       link: https://ecosystem2.co.uk
 

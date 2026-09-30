@@ -1,6 +1,6 @@
 # Architecture
 
-HOB FastAPI is a single FastAPI application with three layers, wired top-down in
+e2 Protocol: FastAPI + CesiumJS (Raster) is a single FastAPI application with three layers, wired top-down in
 `app/main.py` → `app/api/router.py`. It holds no state of its own: MongoDB stores metadata,
 Google Cloud Storage stores rasters, and the service is free to be restarted or scaled
 horizontally.

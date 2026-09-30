@@ -1,4 +1,4 @@
-# Docker Compose for HOB FastAPI Climate Tile Server
+# Docker Compose for e2 Protocol: FastAPI + CesiumJS (Raster), the climate tile server
 # Uses external MongoDB Atlas - no local database needed
 
 version: '3.8'
@@ -11,7 +11,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: hob-fastapi
+    container_name: visengine-microservice
     restart: unless-stopped
     ports:
       - "8080:8080"

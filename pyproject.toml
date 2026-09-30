@@ -1,7 +1,7 @@
 [project]
-name = "hob-fastapi-python"
+name = "e2-protocol-fastapi-cesiumjs-raster"
 version = "0.1.0"
-description = "Add your description here"
+description = "Climate-data microservice: ingests GeoTIFF climate-index rasters and serves them as map tiles, zonal statistics and CZML documents for CesiumJS"
 readme = "README.md"
 license = "AGPL-3.0-or-later"
 license-files = ["LICENSE.md"]

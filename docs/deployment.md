@@ -52,13 +52,13 @@ It runs as a **non-root user**, and the GCS key is expected as a **read-only vol
 never baked into the image:
 
 ```bash
-docker build -t hob-fastapi:latest .
+docker build -t e2-protocol-fastapi-cesiumjs-raster:latest .
 
 docker run -d \
   -p 8080:8080 \
   --env-file .env \
   -v $(pwd)/data/gcs_credentials.json:/app/data/gcs_credentials.json:ro \
-  hob-fastapi:latest
+  e2-protocol-fastapi-cesiumjs-raster:latest
 ```
 
 `GOOGLE_APPLICATION_CREDENTIALS` is adjusted to the container path automatically, so the same

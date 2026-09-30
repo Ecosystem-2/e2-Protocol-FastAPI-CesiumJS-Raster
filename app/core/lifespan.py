@@ -33,7 +33,8 @@ def _setting(label: str, value: object) -> None:
 
 def _log_runtime_settings() -> None:
     _rule("=")
-    logger.info("  HOB FastAPI - climatology microservice")
+    logger.info("  e2 Protocol: FastAPI + CesiumJS (Raster)")
+    logger.info("  Climatology microservice for the Heart of Borneo project")
     _rule("=")
     logger.info("  RUNTIME SETTINGS")
     _setting("Log level", os.getenv("LOG_LEVEL", "INFO").upper())
