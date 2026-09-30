@@ -6,6 +6,8 @@ Climate-data microservice for the Heart of Borneo project. It ingests GeoTIFF cl
 rasters, stores them in Google Cloud Storage and MongoDB, and serves them to a CesiumJS
 frontend as PNG map tiles, zonal statistics, and CZML 3D-visualisation documents.
 
+![PLACEHOLDER: rendered climate tiles and CZML bars over the Segama River in CesiumJS](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_CesiumJS-Squence.png?raw=true)
+
 This is the development microservice. Branch from `development`; see
 [Contributing](#contributing) before opening a pull request.
 
@@ -23,6 +25,8 @@ uv run python -m app.main
 
 That serves on `http://localhost:8080`. Interactive API reference at `/docs`, the demo
 workflow at `/demo/`.
+
+![PLACEHOLDER: the Swagger UI at /docs, showing the climate-indices endpoints](https://github.com/E2-RJ/Assets_ecosystem2/blob/main/Screenshot_Visengine_SwaggerUI.png?raw=true)
 
 With Docker instead:
 
