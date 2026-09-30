@@ -212,3 +212,21 @@ data/
 ~ data/uploads/*
 docs/temp*.md
 .github/prompts/*
+# MkDocs build output
+site/
+
+# AI assistant instructions and local state.
+# These are internal guidance, not part of the published source. The canonical merged copy
+# lives in the KB at 01/05/0105-hob-fastapi-ai-agent-conventions.
+# Note: .cursor/, .cursorignore and .github/prompts/ are already ignored above.
+CLAUDE.md
+CLAUDE.local.md
+.claude/
+AGENTS.md
+.github/copilot-instructions.md
+
+# macOS Finder metadata
+.DS_Store
+
+# VS Code multi-root workspace files: one person's editor layout, not project config
+*.code-workspace

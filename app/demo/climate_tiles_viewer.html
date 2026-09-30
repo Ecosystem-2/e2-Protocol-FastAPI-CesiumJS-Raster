@@ -128,8 +128,27 @@
     // CONFIGURATION - Define all tile URLs with consistent colormap and scale
     // ============================================================================
     
-    const API_BASE = "https://visengine-api.ecosystem2.co.uk/api/climate-indices";
-    
+    // Same-origin by default, then replaced by whatever /config reports. A hardcoded host
+    // sends every clone of this page at one particular deployment, so the operator's own
+    // DEMO_API_BASE is the only thing that should decide where the requests land.
+    let API_BASE = `${window.location.origin}/api/climate-indices`;
+
+    async function loadConfig() {
+      try {
+        const response = await fetch(`${API_BASE}/config`);
+        if (!response.ok) return;
+        const config = await response.json();
+        API_BASE = config.api_base || API_BASE;
+        // The token below is only a fallback; an operator with their own Ion account
+        // should not have to edit this file to use it.
+        if (config.cesium_ion_token) {
+          Cesium.Ion.defaultAccessToken = config.cesium_ion_token;
+        }
+      } catch (error) {
+        console.warn("[Config] Failed to load from backend, using defaults:", error.message);
+      }
+    }
+
     // Colormap configurations for different index types
     // Note: humid-heat-stress uses 'rdylgn_r' (reversed Red-Yellow-Green)
     // showing green (low threat) → yellow → red (high threat)
@@ -286,8 +305,9 @@
     // CESIUM SETUP
     // ============================================================================
     
-    // Use Cesium's default token (suitable for development/testing)
-    Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
+    // Cesium's public sample token, which is enough for development. loadConfig replaces it
+    // when the deployment sets CESIUM_ION_TOKEN.
+    Cesium.Ion.defaultAccessToken ="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlYWE1OWUxNy1mMWZiLTQzYjYtYTQ0OS1kMWFjYmFkNjc5YzYiLCJpZCI6NTc3MzMsImlhdCI6MTYyNzg0NTE4Mn0.XcKpgANiY19MC4bdFUXMVEBToBmqS8kuYpUlxJHYZxk";
 
     const osmViewModel = new Cesium.ProviderViewModel({
       name: "OpenStreetMap",
@@ -677,6 +697,7 @@
     
     // Initialize demo - fetch assets first, then setup
     async function initialize() {
+      await loadConfig();
       await fetchAvailableSlices();
       
       if (slices.length === 0) {

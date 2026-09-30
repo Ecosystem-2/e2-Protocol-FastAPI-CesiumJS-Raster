@@ -26,3 +26,11 @@ dependencies = [
     "pytest>=9.1.1",
     "PyJWT[crypto]>=2.8.0",
 ]
+
+[tool.pytest.ini_options]
+# The project is virtual, so `app` is never installed into the venv, and pytest's default
+# import mode puts tests/ on sys.path rather than the repository root. Without this, every
+# test that imports the application fails on `No module named 'app'` unless you happen to
+# invoke it as `python -m pytest`.
+pythonpath = ["."]
+testpaths = ["tests"]

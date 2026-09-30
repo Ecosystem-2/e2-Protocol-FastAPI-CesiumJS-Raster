@@ -124,8 +124,7 @@ Two things a new contributor should know before trusting it.
 `-m "not requires_infra"` will not work — that marker does not exist. Skipping is decided
 inside each module. Adding a real marker set is worthwhile and has not been done.
 
-**`test_locale_site_structure.py` may be dead.** It posts to live endpoints for `localeData`
-and `siteData` structures. Only `localeID` and `siteID` on `PolygonSelectionRecord` still
-correspond to anything in `app/`. It also requires a server already running at
-`127.0.0.1:8080`, so it does not behave like the rest of the suite. Treat its result as
-unreliable until someone confirms which way it is wrong.
+`pyproject.toml` does carry a `[tool.pytest.ini_options]` block setting `pythonpath = ["."]`.
+Without it the project is virtual, so `app` is never installed, and pytest puts `tests/` on
+`sys.path` rather than the repository root: every test importing the application died on
+`No module named 'app'` unless you invoked it as `python -m pytest`.
